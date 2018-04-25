@@ -95,13 +95,30 @@ export class Styler  {
         this.globalPool = {};
         this.preparePools();
     }
+    private nodeList(item) {
+        let list;
+        if (item instanceof Array) {
+            list = item;
+         } else {
+             const x = Object.keys(item);
+             list = [];
+             x.map( (xItem) => {
+                if (item[xItem] instanceof Array) {
+                    list = list.concat(item[xItem]);
+                 } else {
+                    list.push(item[xItem]);
+                }
+             })
+         }
+         return list;
+    }
 
     public transform() {
         let result = [];
         const template:Template = this.templates[this.transformations.rootTemplate];
         
         if (template) {
-            const list = (this.rootNode instanceof Array) ? this.rootNode : Object.keys(this.rootNode);
+            const list = this.nodeList(this.rootNode);
             const attrs = Object.keys(template.style);
     
             list.map( (item) => {
@@ -238,7 +255,7 @@ export class Styler  {
     }
     private templateNodes(template:Template, nodes) {
         let list = [];
-        let n = (this.rootNode instanceof Array) ? this.rootNode : Object.keys(this.rootNode);
+        let n = this.nodeList(this.rootNode);
         n = (template.context === "root") ? n : nodes;
     
         if(template.match && template.match.length) {

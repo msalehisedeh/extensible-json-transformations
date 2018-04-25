@@ -115,13 +115,36 @@ class Styler {
         this.preparePools();
     }
     /**
+     * @param {?} item
+     * @return {?}
+     */
+    nodeList(item) {
+        let /** @type {?} */ list;
+        if (item instanceof Array) {
+            list = item;
+        }
+        else {
+            const /** @type {?} */ x = Object.keys(item);
+            list = [];
+            x.map((xItem) => {
+                if (item[xItem] instanceof Array) {
+                    list = list.concat(item[xItem]);
+                }
+                else {
+                    list.push(item[xItem]);
+                }
+            });
+        }
+        return list;
+    }
+    /**
      * @return {?}
      */
     transform() {
         let /** @type {?} */ result = [];
         const /** @type {?} */ template = this.templates[this.transformations.rootTemplate];
         if (template) {
-            const /** @type {?} */ list = (this.rootNode instanceof Array) ? this.rootNode : Object.keys(this.rootNode);
+            const /** @type {?} */ list = this.nodeList(this.rootNode);
             const /** @type {?} */ attrs = Object.keys(template.style);
             list.map((item) => {
                 const /** @type {?} */ node = {};
@@ -294,7 +317,7 @@ class Styler {
      */
     templateNodes(template, nodes) {
         let /** @type {?} */ list = [];
-        let /** @type {?} */ n = (this.rootNode instanceof Array) ? this.rootNode : Object.keys(this.rootNode);
+        let /** @type {?} */ n = this.nodeList(this.rootNode);
         n = (template.context === "root") ? n : nodes;
         if (template.match && template.match.length) {
             const /** @type {?} */ path = new JXPath(template.match);

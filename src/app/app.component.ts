@@ -43,10 +43,13 @@ export class AppComponent {
     try {
       json = JSON.parse(text);
     }catch(e){
-      this.error = message;
+      this.error = message + " :: " + e.message;
       json = undefined;
     }
     return json
+  }
+  transformationsCopy() {
+    return JSON.parse(JSON.stringify(this.data.transformations));
   }
   addDataEntry(entryName , entryJson, transJson) {
     if (entryName.length && entryJson.length) {
@@ -87,34 +90,18 @@ export class AppComponent {
     this.error = undefined;
     this.pointsOfEntry = undefined;
     this.pointOfEntry = undefined;
-    try {
-      const json = JSON.parse(this.sampleJson);
-      if ( !(json instanceof Array) ) {
-        this.pointsOfEntry = this.findEntryLists(json, "", []);
-      } else if (json.length < 2) {
-        this.error = "Dropped in data do not have enough records in order to gain insight. Please reconsider using it."
-      }
-    } catch(e) {
-      this.sampleJson = undefined;
-      this.error = "We are unable to parse dropped in data into a json. Please review your content and try again."
+    const entry = this.toJson(this.sampleJson, "We are unable to validate JSON data. Please clear text and try again!");
+    if ( !(entry instanceof Array) ) {
+      this.pointsOfEntry = this.findEntryLists(entry, "", []);
+    } else if (entry.length < 2) {
+      this.error = "Dropped in data do not have enough records in order to gain insight. Please reconsider using it."
     }
-    // Do stuff 
-  
-    // Then clear pasted content from the input
   }
 
   onTransformPaste(e: any) {
     this.transformingJson = e.clipboardData.getData('text/plain');
     this.error = undefined;
-    try {
-      JSON.parse( e.clipboardData.getData('text/plain'));
-    } catch(e) {
-      this.transformingJson = undefined;
-      this.error = "We are unable to parse dropped in transformation into a json. Please review your content and try again."
-    }
-    // Do stuff 
-  
-    // Then clear pasted content from the input
+    const trans = this.toJson(this.transformingJson, "We are unable to validate JSON transformations. Please clear text and try again!");
   }
 
   ontransformation(event) {

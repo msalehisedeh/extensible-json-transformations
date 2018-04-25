@@ -13,7 +13,7 @@
 </div>
 <div id="entry" *ngIf="displayEntry">
   <a (click)="displayEntry = false;">X</a>
-  <div class="info" *ngIf="!error">Please drop in JSON data and select a name for it to be added in dropdown.</div>
+  <div class="info" *ngIf="!error">Please select a name for your data set it to be added in dropdown. And drop in data and transformation.</div>
   <div class="alert" *ngIf="error" [textContent]="error"></div>
   <label for="entryName">Name: <input id="entryName" #entryName /></label>
   <label for="pointsOfEntry" *ngIf="pointsOfEntry && pointsOfEntry.length">
@@ -49,14 +49,14 @@
 </div>
 <xjslt *ngIf="!displayEntry"
 	[node]="data.myDataSet"
-  [transformations]="data.transformations"
+  [transformations]="transformationsCopy()"
 	(ontransformation)="ontransformation($event)"></xjslt>
 
 <table style="width:100%" *ngIf="!displayEntry">
   <thead>
-    <th>Original Data</th>
-    <th>Transformation Data</th>
-    <th>Transformed Data</th>
+    <th>JSON</th>
+    <th>Styler</th>
+    <th>Styled</th>
   </thead>
   <tbody>
     <tr>

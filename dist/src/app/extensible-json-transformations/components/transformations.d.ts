@@ -30,6 +30,7 @@ export declare class Styler {
     private rootNode;
     constructor(transformations: Transformations);
     changeRootNode(node: any): void;
+    private nodeList(item);
     transform(): any[];
     apply(...args: any[]): any[];
     private execute(x, node);

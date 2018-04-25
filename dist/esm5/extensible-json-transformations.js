@@ -84,12 +84,31 @@ var Styler = /** @class */ (function () {
         this.globalPool = {};
         this.preparePools();
     };
+    Styler.prototype.nodeList = function (item) {
+        var list;
+        if (item instanceof Array) {
+            list = item;
+        }
+        else {
+            var x = Object.keys(item);
+            list = [];
+            x.map(function (xItem) {
+                if (item[xItem] instanceof Array) {
+                    list = list.concat(item[xItem]);
+                }
+                else {
+                    list.push(item[xItem]);
+                }
+            });
+        }
+        return list;
+    };
     Styler.prototype.transform = function () {
         var _this = this;
         var result = [];
         var template = this.templates[this.transformations.rootTemplate];
         if (template) {
-            var list = (this.rootNode instanceof Array) ? this.rootNode : Object.keys(this.rootNode);
+            var list = this.nodeList(this.rootNode);
             var attrs_1 = Object.keys(template.style);
             list.map(function (item) {
                 var node = {};
@@ -248,7 +267,7 @@ var Styler = /** @class */ (function () {
     };
     Styler.prototype.templateNodes = function (template, nodes) {
         var list = [];
-        var n = (this.rootNode instanceof Array) ? this.rootNode : Object.keys(this.rootNode);
+        var n = this.nodeList(this.rootNode);
         n = (template.context === "root") ? n : nodes;
         if (template.match && template.match.length) {
             var path_1 = new JXPath(template.match);
