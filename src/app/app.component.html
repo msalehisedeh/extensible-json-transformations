@@ -50,8 +50,10 @@
 <xjslt *ngIf="!displayEntry"
 	[node]="data.myDataSet"
   [transformations]="transformationsCopy()"
+  (onerror)="onError( $event )"
 	(ontransformation)="ontransformation($event)"></xjslt>
 
+<div *ngIf="!displayEntry && transformationError" class="alert" [textContent]="transformationError"></div>
 <table style="width:100%" *ngIf="!displayEntry">
   <thead>
     <th>JSON</th>
@@ -65,4 +67,14 @@
       <td valign="top"><div class="json-view" [innerHTML]="data.resultingTree | json"></div></td>
     </tr>
   </tbody>
-</table>   
+</table>  
+<div *ngIf="!displayEntry">
+  <h3>Perform inquiery on the JSON</h3>
+  <p>Type in a nested method call and hit return to perform query on selected JSON (i.e., valueOf, each, split, concat, enlist,join,filter,select,style)</p>
+  <input class="field" 
+        placeholder="valueOf(someNode.name)" 
+        [value]="queryString" 
+        (keyup)="detectMethodCall($event)" />
+  <div class="json-view" [innerHTML]="queryResponse | json"></div>
+</div>
+

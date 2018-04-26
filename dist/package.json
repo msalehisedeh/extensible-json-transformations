@@ -1,6 +1,6 @@
 {
   "name": "extensible-json-transformations",
-  "version": "0.0.2",
+  "version": "0.1.0",
   "license": "MIT",
   "scripts": {
     "ng": "ng",
@@ -30,6 +30,10 @@
     "reformatting",
     "template",
     "JSON path",
+    "JSON query",
+    "nested",
+    "expression",
+    "query",
     "path",
     "node",
     "best"

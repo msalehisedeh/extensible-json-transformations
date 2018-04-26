@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 
-import { AppService } from './app.service'
+import { AppService } from './app.service';
+import { Inquirer } from './extensible-json-transformations/components/inquirer';
 
 @Component({
   selector: 'app-root',
@@ -19,12 +20,15 @@ export class AppComponent {
   selectionContents ={};
   transformations = {};
   error = undefined;
+  queryResponse = undefined;
+  queryString = "";
 
   displayEntry = false;
   sampleJson = "";
   transformingJson = "";
   pointsOfEntry = undefined;
   pointOfEntry = undefined;
+  transformationError = undefined;
   data = {
     transformations: {},
     resultingTree: {},
@@ -48,7 +52,7 @@ export class AppComponent {
     }
     return json
   }
-  transformationsCopy() {
+  transformationsCopy(){
     return JSON.parse(JSON.stringify(this.data.transformations));
   }
   addDataEntry(entryName , entryJson, transJson) {
@@ -56,11 +60,14 @@ export class AppComponent {
       const entry = this.toJson(entryJson, "We are unable to validate JSON data. Please clear text and try again!");
       const trans = this.toJson(transJson, "We are unable to validate JSON transformations. Please clear text and try again!");
       if (entry && trans) {
+        this.data.resultingTree = [];
         this.selectionEntry.push(entryName);
         this.selectionContents[entryName] = {
-          data: entry,
+          data: this.pointOfEntry ? entry[this.pointOfEntry] : entry,
           transformations: trans
         };
+        this.queryResponse = undefined;
+        this.queryString = "";
         this.displayEntry = false;
         this.selectedEntry = entryName;
         this.data.myDataSet = this.selectionContents[entryName].data;
@@ -104,14 +111,30 @@ export class AppComponent {
     const trans = this.toJson(this.transformingJson, "We are unable to validate JSON transformations. Please clear text and try again!");
   }
 
+  detectMethodCall(event) {
+    const code = event.which;
+    if (code === 13) {
+      this.queryString = event.target.value;
+      const inquirer = new Inquirer();
+      this.queryResponse = inquirer.query(this.queryString, this.data.myDataSet);
+    }
+  }
+
   ontransformation(event) {
 	this.data.resultingTree = event;
+  }
+  onError(event) {
+    setTimeout( ()=> {this.transformationError = event}, 666);
   }
 
   transformationDataSet(event) {
     this.selectedEntry = event.target.value;
 
+    this.queryResponse = undefined;
+    this.queryString = "";
     this.data.myDataSet = undefined;
+    this.data.transformations = undefined;
+    this.transformationError = undefined;
     this.data.resultingTree = [];
     
     if (this.selectedEntry === "users") {

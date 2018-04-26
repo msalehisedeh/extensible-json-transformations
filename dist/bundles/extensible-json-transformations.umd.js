@@ -73,21 +73,35 @@ var JXPath = /** @class */ (function () {
     };
     return JXPath;
 }());
-var Styler = /** @class */ (function () {
-    function Styler(transformations) {
+var Inquirer = /** @class */ (function () {
+    function Inquirer() {
+        this.supportedMethods = {};
         this.templates = {};
         this.globalPool = {};
-        this.supportedMethods = {};
-        this.transformations = transformations;
-        this.registerMethods();
-        this.prepareTransformations();
+        this.addSupportingMethod("valueOf", this.valueOf);
+        this.addSupportingMethod("each", this.each);
+        this.addSupportingMethod("split", this.split);
+        this.addSupportingMethod("concat", this.concatenate);
+        this.addSupportingMethod("enlist", this.enlist);
+        this.addSupportingMethod("join", this.join);
+        this.addSupportingMethod("filter", this.filter);
+        this.addSupportingMethod("select", this.select);
+        this.addSupportingMethod("style", this.style);
+        this.addSupportingMethod("match", this.match);
+        this.addSupportingMethod("apply", this.apply);
+        this.addSupportingMethod("filter", this.filter);
+        this.addSupportingMethod("select", this.select);
+        this.addSupportingMethod("offPool", this.offPool);
     }
-    Styler.prototype.changeRootNode = function (node) {
+    Inquirer.prototype.setRootNode = function (node) {
         this.rootNode = node;
-        this.globalPool = {};
-        this.preparePools();
+        this.initPools(this.templates);
     };
-    Styler.prototype.nodeList = function (item) {
+    Inquirer.prototype.templateForName = function (name) {
+        return this.templates[name];
+    };
+    Inquirer.prototype.nodeList = function (node) {
+        var item = node === null ? this.rootNode : node;
         var list;
         if (item instanceof Array) {
             list = item;
@@ -106,43 +120,27 @@ var Styler = /** @class */ (function () {
         }
         return list;
     };
-    Styler.prototype.transform = function () {
+    Inquirer.prototype.query = function (command, node) {
         var _this = this;
-        var result = [];
-        var template = this.templates[this.transformations.rootTemplate];
-        if (template) {
-            var list = this.nodeList(this.rootNode);
-            var attrs_1 = Object.keys(template.style);
-            list.map(function (item) {
-                var node = {};
-                attrs_1.map(function (attr) {
-                    node[attr] = _this.execute(template.style[attr], item);
-                });
-                result.push(node);
+        var mothods = this.toQueryOperation(command);
+        if (node instanceof Array) {
+            var list_3 = [];
+            node.map(function (n) {
+                list_3 = list_3.concat(_this.invoke(mothods, n));
             });
+            return list_3;
         }
-        if (this.transformations.onResult && this.transformations.onResult.length) {
-            var functions = this.parseFunctions(this.transformations.onResult);
-            result = this.execute(functions, result);
-        }
-        return result;
+        return this.invoke(mothods, node);
     };
-    Styler.prototype.apply = function () {
-        var args = [];
-        for (var _i = 0; _i < arguments.length; _i++) {
-            args[_i] = arguments[_i];
-        }
-        return this.match(args[0], args[1], "=", args[2], args[3]);
-    };
-    Styler.prototype.execute = function (x, node) {
+    Inquirer.prototype.invoke = function (method, node) {
         var _this = this;
         var list = [];
-        if (typeof x === 'object') {
-            if (x.args instanceof Array) {
-                if (x.args.length)
-                    x.args.map(function (arg) {
+        if (typeof method === 'object') {
+            if (method.args instanceof Array) {
+                if (method.args.length)
+                    method.args.map(function (arg) {
                         if (arg.name) {
-                            list.push(_this.execute(arg, node));
+                            list.push(_this.invoke(arg, node));
                         }
                         else {
                             list.push(arg);
@@ -150,37 +148,74 @@ var Styler = /** @class */ (function () {
                     });
             }
             else {
-                list.push(x.args);
+                list.push(method.args);
             }
             list.push(node);
-            var f = this.supportedMethods[x.name];
+            var f = this.supportedMethods[method.name];
             if (f) {
                 list = f.apply(this, list);
             }
             else {
-                list = x.name;
+                list = method.name;
             }
         }
         else {
-            list = x;
+            list = method;
         }
         return list;
     };
-    Styler.prototype.concatenate = function () {
+    Inquirer.prototype.concatenate = function () {
         var args = [];
         for (var _i = 0; _i < arguments.length; _i++) {
             args[_i] = arguments[_i];
         }
-        return args.slice(0, args.length - 1).join("");
+        var left = args[0];
+        var delim = args[1];
+        var right = args[2];
+        var result = [];
+        if (left instanceof Array) {
+            if (right instanceof Array) {
+                if (left.length > right.length) {
+                    left.map(function (item, index) {
+                        var x = right.length > index ? right[index] : "";
+                        result.push(item + delim + x);
+                    });
+                }
+                else {
+                    right.map(function (item, index) {
+                        var x = left.length > index ? left[index] : "";
+                        result.push(x + delim + item);
+                    });
+                }
+            }
+            else {
+                left.map(function (item) {
+                    result.push(item + delim + right);
+                });
+            }
+        }
+        else {
+            if (right instanceof Array) {
+                right.map(function (item) {
+                    result.push(left + delim + item);
+                });
+            }
+            else {
+                result.push(left);
+                result.push(delim);
+                result.push(right);
+            }
+        }
+        return result.join("");
     };
-    Styler.prototype.split = function () {
+    Inquirer.prototype.split = function () {
         var args = [];
         for (var _i = 0; _i < arguments.length; _i++) {
             args[_i] = arguments[_i];
         }
-        return args[0].split(args[1]);
+        return args[0] ? args[0].split(args[1]) : [];
     };
-    Styler.prototype.valueOf = function () {
+    Inquirer.prototype.valueOf = function () {
         var args = [];
         for (var _i = 0; _i < arguments.length; _i++) {
             args[_i] = arguments[_i];
@@ -188,7 +223,7 @@ var Styler = /** @class */ (function () {
         var jpath = new JXPath(args[0]);
         return jpath.valueOf(args[1]);
     };
-    Styler.prototype.each = function () {
+    Inquirer.prototype.each = function () {
         var _this = this;
         var args = [];
         for (var _i = 0; _i < arguments.length; _i++) {
@@ -200,11 +235,11 @@ var Styler = /** @class */ (function () {
                 name: "valueOf",
                 args: args[1]
             };
-            list.push(_this.execute(method, item));
+            list.push(_this.invoke(method, item));
         });
         return list;
     };
-    Styler.prototype.enlist = function () {
+    Inquirer.prototype.enlist = function () {
         var args = [];
         for (var _i = 0; _i < arguments.length; _i++) {
             args[_i] = arguments[_i];
@@ -215,83 +250,27 @@ var Styler = /** @class */ (function () {
         });
         return list;
     };
-    Styler.prototype.join = function () {
+    Inquirer.prototype.join = function () {
         var args = [];
         for (var _i = 0; _i < arguments.length; _i++) {
             args[_i] = arguments[_i];
         }
         return args[0].join(args[1]);
     };
-    Styler.prototype.evaluateOperation = function (left, operation, right) {
-        var result = false;
-        if (right instanceof Array) {
-            if (operation === "=") {
-                right.map(function (k) {
-                    if (left === k) {
-                        result = true;
-                    }
-                });
-            }
-            else if (operation === "in") {
-                right.map(function (k) {
-                    if (k.indexOf(left) >= 0) {
-                        result = true;
-                    }
-                });
-            }
-            else if (operation === "!") {
-                var f_1 = false;
-                right.map(function (k) {
-                    if (left === k) {
-                        f_1 = true;
-                    }
-                });
-                result = !f_1;
-            }
+    Inquirer.prototype.apply = function () {
+        var args = [];
+        for (var _i = 0; _i < arguments.length; _i++) {
+            args[_i] = arguments[_i];
         }
-        else {
-            if (operation === "=") {
-                result = (left == right);
-            }
-            else if (operation === "in") {
-                result = (right.indexOf(left) >= 0);
-            }
-            else if (operation === "!") {
-                result = (left !== right);
-            }
-            else if (operation === ">") {
-                result = (parseFloat(left) > parseFloat(right));
-            }
-            else if (operation === "<") {
-                result = (parseFloat(left) < parseFloat(right));
-            }
-        }
-        return result;
+        return this.match(args[0], args[1], "=", args[2], args[3]);
     };
-    Styler.prototype.templateNodes = function (template, nodes) {
-        var list = [];
-        var n = this.nodeList(this.rootNode);
-        n = (template.context === "root") ? n : nodes;
-        if (template.match && template.match.length) {
-            var path_1 = new JXPath(template.match);
-            n.map(function (node) {
-                if (path_1.valueOf(node) === template.value) {
-                    list.push(node);
-                }
-            });
-        }
-        else if (nodes) {
-            list = n;
-        }
-        return list;
-    };
-    Styler.prototype.match = function () {
+    Inquirer.prototype.match = function () {
         var _this = this;
         var args = [];
         for (var _i = 0; _i < arguments.length; _i++) {
             args[_i] = arguments[_i];
         }
-        var template = this.templates[args[0]];
+        var template = this.templateForName(args[0]);
         if (!template) {
             throw "Missing Template definition for '" + args[0] + "'.";
         }
@@ -339,7 +318,7 @@ var Styler = /** @class */ (function () {
         }
         return this.style(args[0], list);
     };
-    Styler.prototype.filter = function () {
+    Inquirer.prototype.filter = function () {
         var _this = this;
         var args = [];
         for (var _i = 0; _i < arguments.length; _i++) {
@@ -366,7 +345,7 @@ var Styler = /** @class */ (function () {
         });
         return list;
     };
-    Styler.prototype.select = function () {
+    Inquirer.prototype.select = function () {
         var args = [];
         for (var _i = 0; _i < arguments.length; _i++) {
             args[_i] = arguments[_i];
@@ -394,25 +373,200 @@ var Styler = /** @class */ (function () {
         }
         return list;
     };
-    Styler.prototype.style = function () {
+    Inquirer.prototype.style = function () {
         var _this = this;
         var args = [];
         for (var _i = 0; _i < arguments.length; _i++) {
             args[_i] = arguments[_i];
         }
-        var template = this.templates[args[0]];
+        var template = this.templateForName(args[0]);
+        if (!template) {
+            throw "Missing Template definition for '" + args[0] + "'.";
+        }
         var result = [];
         var attrs = Object.keys(template.style);
         args[1].map(function (item) {
             var node = {};
             attrs.map(function (attr) {
-                node[attr] = _this.execute(template.style[attr], item);
+                node[attr] = _this.invoke(template.style[attr], item);
             });
             result.push(node);
         });
         return result;
     };
-    Styler.prototype.offPool = function () {
+    Inquirer.prototype.addSupportingMethod = function (name, method) {
+        this.supportedMethods[name] = method;
+    };
+    Inquirer.prototype.removeQuotes = function (str) {
+        return (str.length && str[0] === '\'' && str[str.length - 1] === '\'') ? str.substring(1, str.length - 1) : str;
+    };
+    Inquirer.prototype.toQueryOperation = function (methods) {
+        var operations = methods.replace(/([^']+)|('[^']+')/g, function ($0, $1, $2) {
+            if ($1) {
+                return $1.replace(/\s/g, '');
+            }
+            else {
+                return $2;
+            }
+        }).replace(/'[^']+'/g, function (match) {
+            return match.replace(/,/g, '~');
+        });
+        return this.toFunctions(operations);
+    };
+    Inquirer.prototype.toFunctions = function (item) {
+        var i = -1;
+        var j = -1;
+        var k = -1;
+        var c = 0;
+        var json = {};
+        for (var cindex = 0; cindex < item.length; cindex++) {
+            if (item[cindex] === '(') {
+                if (c === 0) {
+                    i = cindex;
+                }
+                c++;
+            }
+            else if (item[cindex] === ')') {
+                c--;
+                if (c === 0) {
+                    var isArry = (json instanceof Array);
+                    j = cindex;
+                    if (!isArry && (j === (item.length - 1))) {
+                        json["name"] = item.substring(0, i);
+                        json["args"] = this.toFunctions(item.substring(i + 1, j));
+                    }
+                    else {
+                        if (!isArry) {
+                            json = [];
+                        }
+                        json.push({
+                            name: item.substring(k + 1, i),
+                            args: this.toFunctions(item.substring(i + 1, j))
+                        });
+                    }
+                }
+            }
+            else if (item[cindex] === ',') {
+                if (c === 0 && (cindex - 1 !== k)) {
+                    var isArry = (json instanceof Array);
+                    if (k < 0) {
+                        if (i < 0) {
+                            if (!isArry) {
+                                json = [];
+                            }
+                            json.push({
+                                name: this.removeQuotes(item.substring(k + 1, cindex).replace(/~/g, ',')),
+                                args: []
+                            });
+                        }
+                        k = cindex;
+                    }
+                    else {
+                        var x = this.removeQuotes(item.substring(k + 1, cindex).replace(/~/g, ','));
+                        if (x.indexOf('(') < 0) {
+                            if (json instanceof Array) {
+                                json.push(x);
+                            }
+                            else {
+                                json.args.push(x);
+                            }
+                        }
+                        k = cindex;
+                    }
+                }
+                else if (c === 0 && (cindex - 1 === k)) {
+                    k = cindex;
+                }
+            }
+        }
+        if (i >= 0 && j < 0) {
+            throw "incorrect method call declaration. Missing ')'";
+        }
+        else if (i < 0 && j > 0) {
+            throw "incorrect method call declaration. Missing '('";
+        }
+        else if (i < 0 && j < 0 && k < 0) {
+            return item;
+        }
+        else if (c === 0 && k > j) {
+            if (json instanceof Array) {
+                json.push(this.removeQuotes(item.substring(k + 1, item.length).replace(/~/g, ',')));
+            }
+            else {
+                json.args.push(this.removeQuotes(item.substring(k + 1, item.length).replace(/~/g, ',')));
+            }
+        }
+        return json;
+    };
+    Inquirer.prototype.templateNodes = function (template, nodes) {
+        var list = [];
+        var n = nodes;
+        if (template.context === "root") {
+            if (!this.rootNode) {
+                throw "Unable to find root node to perform operation.";
+            }
+            n = this.nodeList(this.rootNode);
+        }
+        if (template.match && template.match.length) {
+            var path_1 = new JXPath(template.match);
+            n.map(function (node) {
+                if (path_1.valueOf(node) === template.value) {
+                    list.push(node);
+                }
+            });
+        }
+        else if (nodes) {
+            list = n;
+        }
+        return list;
+    };
+    Inquirer.prototype.evaluateOperation = function (left, operation, right) {
+        var result = false;
+        if (right instanceof Array) {
+            if (operation === "=") {
+                right.map(function (k) {
+                    if (left === k) {
+                        result = true;
+                    }
+                });
+            }
+            else if (operation === "in") {
+                right.map(function (k) {
+                    if (k.indexOf(left) >= 0) {
+                        result = true;
+                    }
+                });
+            }
+            else if (operation === "!") {
+                var f_1 = false;
+                right.map(function (k) {
+                    if (left === k) {
+                        f_1 = true;
+                    }
+                });
+                result = !f_1;
+            }
+        }
+        else {
+            if (operation === "=") {
+                result = (left == right);
+            }
+            else if (operation === "in") {
+                result = (right.indexOf(left) >= 0);
+            }
+            else if (operation === "!") {
+                result = (left !== right);
+            }
+            else if (operation === ">") {
+                result = (parseFloat(left) > parseFloat(right));
+            }
+            else if (operation === "<") {
+                result = (parseFloat(left) < parseFloat(right));
+            }
+        }
+        return result;
+    };
+    Inquirer.prototype.offPool = function () {
         var args = [];
         for (var _i = 0; _i < arguments.length; _i++) {
             args[_i] = arguments[_i];
@@ -440,35 +594,27 @@ var Styler = /** @class */ (function () {
         }
         return list;
     };
-    Styler.prototype.registerMethods = function () {
-        this.supportedMethods["apply"] = this.apply;
-        this.supportedMethods["valueOf"] = this.valueOf;
-        this.supportedMethods["each"] = this.each;
-        this.supportedMethods["split"] = this.split;
-        this.supportedMethods["concat"] = this.concatenate;
-        this.supportedMethods["enlist"] = this.enlist;
-        this.supportedMethods["join"] = this.join;
-        this.supportedMethods["match"] = this.match;
-        this.supportedMethods["filter"] = this.filter;
-        this.supportedMethods["select"] = this.select;
-        this.supportedMethods["style"] = this.style;
-        this.supportedMethods["offPool"] = this.offPool;
-    };
-    Styler.prototype.prepareTransformations = function () {
+    Inquirer.prototype.initTemplates = function (list) {
         var _this = this;
-        var list = this.transformations.templates;
         list.map(function (template) {
             Object.keys(template.style).map(function (key) {
-                template.style[key] = _this.parseFunctions(template.style[key]);
+                template.style[key] = _this.toQueryOperation(template.style[key]);
             });
             _this.templates[template.name] = template;
         });
     };
-    Styler.prototype.preparePools = function () {
+    Inquirer.prototype.initPools = function (templates) {
         var _this = this;
-        var list = Object.keys(this.templates);
+        var list = Object.keys(templates);
+        if (list.length === 0) {
+            throw "Missing Template definitions.";
+        }
+        if (!this.rootNode) {
+            throw "Unable to find root node to perform operation.";
+        }
+        this.globalPool = {};
         list.map(function (template) {
-            var t = _this.templates[template];
+            var t = _this.templateForName(template);
             if (t.inPool) {
                 var path = new JXPath(t.inPool);
                 var path2_1 = path.fromLast();
@@ -485,104 +631,37 @@ var Styler = /** @class */ (function () {
             }
         });
     };
-    Styler.prototype.removeQuotes = function (str) {
-        return (str.length && str[0] === '\'' && str[str.length - 1] === '\'') ? str.substring(1, str.length - 1) : str;
+    return Inquirer;
+}());
+var Styler = /** @class */ (function () {
+    function Styler(transformations) {
+        this.inquirer = new Inquirer();
+        this.transformations = transformations;
+        this.inquirer.initTemplates(this.transformations.templates);
+    }
+    Styler.prototype.changeRootNode = function (node) {
+        this.inquirer.setRootNode(node);
     };
-    Styler.prototype.parseFunctions = function (item) {
-        var i = -1;
-        var j = -1;
-        var k = -1;
-        var c = 0;
-        var json = {};
-        for (var cindex = 0; cindex < item.length; cindex++) {
-            if (item[cindex] === '(') {
-                if (c === 0) {
-                    i = cindex;
-                }
-                c++;
-            }
-            else if (item[cindex] === ')') {
-                c--;
-                if (c === 0) {
-                    var isArry = (json instanceof Array);
-                    j = cindex;
-                    if (!isArry && (j === (item.length - 1))) {
-                        json["name"] = item.substring(0, i);
-                        json["args"] = this.parseFunctions(item.substring(i + 1, j));
-                    }
-                    else {
-                        if (!isArry) {
-                            json = [];
-                        }
-                        json.push({
-                            name: item.substring(k + 1, i),
-                            args: this.parseFunctions(item.substring(i + 1, j))
-                        });
-                    }
-                }
-            }
-            else if (item[cindex] === ',') {
-                if (c === 0 && (cindex - 1 !== k)) {
-                    var isArry = (json instanceof Array);
-                    if (k < 0) {
-                        if (i < 0) {
-                            if (!isArry) {
-                                json = [];
-                            }
-                            json.push({
-                                name: this.removeQuotes(item.substring(k + 1, cindex)),
-                                args: []
-                            });
-                        }
-                        k = cindex;
-                    }
-                    else if ((item[cindex - 1] === '\'' || (item[cindex - 1] === ' ' && item[cindex - 2] === '\'')) &&
-                        (((cindex < item.length - 1) && item[cindex + 1] === '\'') ||
-                            ((cindex < item.length - 2) && item[cindex + 1] === ' ' && item[cindex + 2] === '\''))) {
-                        if (json instanceof Array) {
-                            json.push(",");
-                        }
-                        else {
-                            json.args.push(",");
-                        }
-                        k = cindex + 1;
-                    }
-                    else {
-                        var x = item.substring(k + 1, cindex);
-                        if (x.indexOf('\'') < 0) {
-                            if (json instanceof Array) {
-                                json.push(x);
-                            }
-                            else {
-                                json.args.push(x);
-                            }
-                        }
-                        k = cindex;
-                    }
-                }
-                else if (c === 0 && (cindex - 1 === k)) {
-                    k = cindex;
-                }
-            }
+    Styler.prototype.transform = function () {
+        var _this = this;
+        var result = [];
+        var template = this.inquirer.templateForName(this.transformations.rootTemplate);
+        if (template) {
+            var list = this.inquirer.nodeList(null);
+            var attrs_1 = Object.keys(template.style);
+            list.map(function (item) {
+                var node = {};
+                attrs_1.map(function (attr) {
+                    node[attr] = _this.inquirer.invoke(template.style[attr], item);
+                });
+                result.push(node);
+            });
         }
-        if (i >= 0 && j < 0) {
-            throw "incorrect method call declaration. Missing ')'";
+        if (this.transformations.onResult && this.transformations.onResult.length) {
+            var functions = this.inquirer.toQueryOperation(this.transformations.onResult);
+            result = this.inquirer.invoke(functions, result);
         }
-        else if (i < 0 && j > 0) {
-            throw "incorrect method call declaration. Missing '('";
-        }
-        else if (i < 0 && j < 0 && k < 0) {
-            return item;
-        }
-        else if (c === 0 && k > j) {
-            if (json instanceof Array) {
-                json.push(this.removeQuotes(item.substring(k + 1, item.length).trim()));
-            }
-            else {
-                json.args.push(this.removeQuotes(item.substring(k + 1, item.length).trim()));
-            }
-        }
-        return json;
+        return result;
     };
     return Styler;
 }());
@@ -590,6 +669,7 @@ var XjsltComponent = /** @class */ (function () {
     function XjsltComponent() {
         this.node = {};
         this.ontransformation = new core.EventEmitter();
+        this.onerror = new core.EventEmitter();
     }
     XjsltComponent.prototype.ngOnInit = function () {
         if (this.node && this.transformations) {
@@ -597,7 +677,12 @@ var XjsltComponent = /** @class */ (function () {
                 this.styler = new Styler(this.transformations);
             }
             this.styler.changeRootNode(this.node);
-            this.ontransformation.emit(this.styler.transform());
+            try {
+                this.ontransformation.emit(this.styler.transform());
+            }
+            catch (e) {
+                this.onerror.emit(e.message);
+            }
         }
     };
     XjsltComponent.prototype.ngOnChanges = function (chages) {
@@ -623,6 +708,7 @@ XjsltComponent.propDecorators = {
     "node": [{ type: core.Input, args: ["node",] },],
     "transformations": [{ type: core.Input, args: ["transformations",] },],
     "ontransformation": [{ type: core.Output, args: ["ontransformation",] },],
+    "onerror": [{ type: core.Output, args: ["onerror",] },],
 };
 var XjsltModule = /** @class */ (function () {
     function XjsltModule() {
@@ -650,6 +736,9 @@ XjsltModule.decorators = [
 XjsltModule.ctorParameters = function () { return []; };
 
 exports.XjsltComponent = XjsltComponent;
+exports.Styler = Styler;
+exports.JXPath = JXPath;
+exports.Inquirer = Inquirer;
 exports.XjsltModule = XjsltModule;
 
 Object.defineProperty(exports, '__esModule', { value: true });

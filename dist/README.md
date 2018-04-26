@@ -2,9 +2,13 @@
 # Welcome to Extensible JSON transformations!
 
 
-Have you ever wanted to consume a JSON in a program but the JSON was in a form not suitable for your program? Have you wanted to use the JSON without writing any code to do it? Have you wondered what it takes to make this happen? Well... wonder no more and add this component into your project...
+Have you ever wanted to perform query on a JSON?  Have you ever wanted to consume it in a program but the JSON was in a form not suitable for your program? Have you wanted to use the JSON without writing any code to do it? Have you wondered what it takes to make this happen? Well... wonder no more and add this component into your project...
 
 [Live Demo](https://extensible-json-transformations.stackblitz.io) | [Source code](https://github.com/msalehisedeh/extensible-json-transformations)
+
+## Version 0.1.0
+Added ability to query a JSON directly.
+fixed few logic errors.
 
 ## Version 0.0.1
 
@@ -16,6 +20,8 @@ EXPORTS:
 	XjsltComponent
 	Transformations
 	Template
+	Styler
+	Inquirer
 ```
 
 ## Definitions
@@ -36,7 +42,7 @@ JST: JSON Styling Template
 
 ## Styling Methods
 
-| Method | Arguments | Example | Description |
+| Method | Example | Arguments | Description |
 |------------|-----------------------|---------|------------------------------------------------------------|
 | valueOf | `valueOf(a.b.c)` | 1) JPath | Traverse the given JPath and return its value. |
 | enlist | `enlist(valueOf(a),valueOf(b),valueOf(c))` | 1) Array | Insert argument values into a list |
@@ -95,7 +101,7 @@ export interface Template {
 
 Run `npm install extensible-json-transformation` in your application. and do the following:
 
-in your html:
+If you want to use the component, do the following in your html:
 ```javascript
 <xjslt
 	[node]="myDataSet"
@@ -121,6 +127,23 @@ transformations  could  be ={
 	}]
 }
 ```
+
+If you want to directly use the transformation object, do the following in your code:
+```javascript
+    const styler = new Styler(theJsonForTransfromation);
+
+	this.styler.changeRootNode(theJsonRootNode);
+    this.styler.transform();
+```
+
+If you want to directly query a JSON object, do the following in your code:
+```javascript
+    const inquirer = new Inquirer();
+	const queryResponse = inquirer.query("set of nested function calls", theJsonRootNode);
+	
+	where nested function calls could be `enlist(valueOf(a),valueOf(b),valueOf(c))`
+```
+
   
 
 ![alt text](https://raw.githubusercontent.com/msalehisedeh/extensible-json-transformations/master/sample.png  "What you would see when a XJSLT is used")

@@ -93,32 +93,47 @@ class JXPath {
         return pItem;
     }
 }
-class Styler {
-    /**
-     * @param {?} transformations
-     */
-    constructor(transformations) {
+class Inquirer {
+    constructor() {
+        this.supportedMethods = {};
         this.templates = {};
         this.globalPool = {};
-        this.supportedMethods = {};
-        this.transformations = transformations;
-        this.registerMethods();
-        this.prepareTransformations();
+        this.addSupportingMethod("valueOf", this.valueOf);
+        this.addSupportingMethod("each", this.each);
+        this.addSupportingMethod("split", this.split);
+        this.addSupportingMethod("concat", this.concatenate);
+        this.addSupportingMethod("enlist", this.enlist);
+        this.addSupportingMethod("join", this.join);
+        this.addSupportingMethod("filter", this.filter);
+        this.addSupportingMethod("select", this.select);
+        this.addSupportingMethod("style", this.style);
+        this.addSupportingMethod("match", this.match);
+        this.addSupportingMethod("apply", this.apply);
+        this.addSupportingMethod("filter", this.filter);
+        this.addSupportingMethod("select", this.select);
+        this.addSupportingMethod("offPool", this.offPool);
     }
     /**
      * @param {?} node
      * @return {?}
      */
-    changeRootNode(node) {
+    setRootNode(node) {
         this.rootNode = node;
-        this.globalPool = {};
-        this.preparePools();
+        this.initPools(this.templates);
     }
     /**
-     * @param {?} item
+     * @param {?} name
      * @return {?}
      */
-    nodeList(item) {
+    templateForName(name) {
+        return this.templates[name];
+    }
+    /**
+     * @param {?} node
+     * @return {?}
+     */
+    nodeList(node) {
+        const /** @type {?} */ item = node === null ? this.rootNode : node;
         let /** @type {?} */ list;
         if (item instanceof Array) {
             list = item;
@@ -138,48 +153,34 @@ class Styler {
         return list;
     }
     /**
-     * @return {?}
-     */
-    transform() {
-        let /** @type {?} */ result = [];
-        const /** @type {?} */ template = this.templates[this.transformations.rootTemplate];
-        if (template) {
-            const /** @type {?} */ list = this.nodeList(this.rootNode);
-            const /** @type {?} */ attrs = Object.keys(template.style);
-            list.map((item) => {
-                const /** @type {?} */ node = {};
-                attrs.map((attr) => {
-                    node[attr] = this.execute(template.style[attr], item);
-                });
-                result.push(node);
-            });
-        }
-        if (this.transformations.onResult && this.transformations.onResult.length) {
-            const /** @type {?} */ functions = this.parseFunctions(this.transformations.onResult);
-            result = this.execute(functions, result);
-        }
-        return result;
-    }
-    /**
-     * @param {...?} args
-     * @return {?}
-     */
-    apply(...args) {
-        return this.match(args[0], args[1], "=", args[2], args[3]);
-    }
-    /**
-     * @param {?} x
+     * @param {?} command
      * @param {?} node
      * @return {?}
      */
-    execute(x, node) {
+    query(command, node) {
+        const /** @type {?} */ mothods = this.toQueryOperation(command);
+        if (node instanceof Array) {
+            let /** @type {?} */ list = [];
+            node.map((n) => {
+                list = list.concat(this.invoke(mothods, n));
+            });
+            return list;
+        }
+        return this.invoke(mothods, node);
+    }
+    /**
+     * @param {?} method
+     * @param {?} node
+     * @return {?}
+     */
+    invoke(method, node) {
         let /** @type {?} */ list = [];
-        if (typeof x === 'object') {
-            if (x.args instanceof Array) {
-                if (x.args.length)
-                    x.args.map((arg) => {
+        if (typeof method === 'object') {
+            if (method.args instanceof Array) {
+                if (method.args.length)
+                    method.args.map((arg) => {
                         if (arg.name) {
-                            list.push(this.execute(arg, node));
+                            list.push(this.invoke(arg, node));
                         }
                         else {
                             list.push(arg);
@@ -187,19 +188,19 @@ class Styler {
                     });
             }
             else {
-                list.push(x.args);
+                list.push(method.args);
             }
             list.push(node);
-            const /** @type {?} */ f = this.supportedMethods[x.name];
+            const /** @type {?} */ f = this.supportedMethods[method.name];
             if (f) {
                 list = f.apply(this, list);
             }
             else {
-                list = x.name;
+                list = method.name;
             }
         }
         else {
-            list = x;
+            list = method;
         }
         return list;
     }
@@ -208,14 +209,51 @@ class Styler {
      * @return {?}
      */
     concatenate(...args) {
-        return args.slice(0, args.length - 1).join("");
+        const /** @type {?} */ left = args[0];
+        const /** @type {?} */ delim = args[1];
+        const /** @type {?} */ right = args[2];
+        const /** @type {?} */ result = [];
+        if (left instanceof Array) {
+            if (right instanceof Array) {
+                if (left.length > right.length) {
+                    left.map((item, index) => {
+                        const /** @type {?} */ x = right.length > index ? right[index] : "";
+                        result.push(item + delim + x);
+                    });
+                }
+                else {
+                    right.map((item, index) => {
+                        const /** @type {?} */ x = left.length > index ? left[index] : "";
+                        result.push(x + delim + item);
+                    });
+                }
+            }
+            else {
+                left.map((item) => {
+                    result.push(item + delim + right);
+                });
+            }
+        }
+        else {
+            if (right instanceof Array) {
+                right.map((item) => {
+                    result.push(left + delim + item);
+                });
+            }
+            else {
+                result.push(left);
+                result.push(delim);
+                result.push(right);
+            }
+        }
+        return result.join("");
     }
     /**
      * @param {...?} args
      * @return {?}
      */
     split(...args) {
-        return args[0].split(args[1]);
+        return args[0] ? args[0].split(args[1]) : [];
     }
     /**
      * @param {...?} args
@@ -236,7 +274,7 @@ class Styler {
                 name: "valueOf",
                 args: args[1]
             };
-            list.push(this.execute(method, item));
+            list.push(this.invoke(method, item));
         });
         return list;
     }
@@ -259,85 +297,18 @@ class Styler {
         return args[0].join(args[1]);
     }
     /**
-     * @param {?} left
-     * @param {?} operation
-     * @param {?} right
+     * @param {...?} args
      * @return {?}
      */
-    evaluateOperation(left, operation, right) {
-        let /** @type {?} */ result = false;
-        if (right instanceof Array) {
-            if (operation === "=") {
-                right.map((k) => {
-                    if (left === k) {
-                        result = true;
-                    }
-                });
-            }
-            else if (operation === "in") {
-                right.map((k) => {
-                    if (k.indexOf(left) >= 0) {
-                        result = true;
-                    }
-                });
-            }
-            else if (operation === "!") {
-                let /** @type {?} */ f = false;
-                right.map((k) => {
-                    if (left === k) {
-                        f = true;
-                    }
-                });
-                result = !f;
-            }
-        }
-        else {
-            if (operation === "=") {
-                result = (left == right);
-            }
-            else if (operation === "in") {
-                result = (right.indexOf(left) >= 0);
-            }
-            else if (operation === "!") {
-                result = (left !== right);
-            }
-            else if (operation === ">") {
-                result = (parseFloat(left) > parseFloat(right));
-            }
-            else if (operation === "<") {
-                result = (parseFloat(left) < parseFloat(right));
-            }
-        }
-        return result;
-    }
-    /**
-     * @param {?} template
-     * @param {?} nodes
-     * @return {?}
-     */
-    templateNodes(template, nodes) {
-        let /** @type {?} */ list = [];
-        let /** @type {?} */ n = this.nodeList(this.rootNode);
-        n = (template.context === "root") ? n : nodes;
-        if (template.match && template.match.length) {
-            const /** @type {?} */ path = new JXPath(template.match);
-            n.map((node) => {
-                if (path.valueOf(node) === template.value) {
-                    list.push(node);
-                }
-            });
-        }
-        else if (nodes) {
-            list = n;
-        }
-        return list;
+    apply(...args) {
+        return this.match(args[0], args[1], "=", args[2], args[3]);
     }
     /**
      * @param {...?} args
      * @return {?}
      */
     match(...args) {
-        const /** @type {?} */ template = this.templates[args[0]];
+        const /** @type {?} */ template = this.templateForName(args[0]);
         if (!template) {
             throw "Missing Template definition for '" + args[0] + "'.";
         }
@@ -444,16 +415,220 @@ class Styler {
      * @return {?}
      */
     style(...args) {
-        const /** @type {?} */ template = this.templates[args[0]];
+        const /** @type {?} */ template = this.templateForName(args[0]);
+        if (!template) {
+            throw "Missing Template definition for '" + args[0] + "'.";
+        }
         const /** @type {?} */ result = [];
         const /** @type {?} */ attrs = Object.keys(template.style);
         args[1].map((item) => {
             const /** @type {?} */ node = {};
             attrs.map((attr) => {
-                node[attr] = this.execute(template.style[attr], item);
+                node[attr] = this.invoke(template.style[attr], item);
             });
             result.push(node);
         });
+        return result;
+    }
+    /**
+     * @param {?} name
+     * @param {?} method
+     * @return {?}
+     */
+    addSupportingMethod(name, method) {
+        this.supportedMethods[name] = method;
+    }
+    /**
+     * @param {?} str
+     * @return {?}
+     */
+    removeQuotes(str) {
+        return (str.length && str[0] === '\'' && str[str.length - 1] === '\'') ? str.substring(1, str.length - 1) : str;
+    }
+    /**
+     * @param {?} methods
+     * @return {?}
+     */
+    toQueryOperation(methods) {
+        const /** @type {?} */ operations = methods.replace(/([^']+)|('[^']+')/g, function ($0, $1, $2) {
+            if ($1) {
+                return $1.replace(/\s/g, '');
+            }
+            else {
+                return $2;
+            }
+        }).replace(/'[^']+'/g, function (match) {
+            return match.replace(/,/g, '~');
+        });
+        return this.toFunctions(operations);
+    }
+    /**
+     * @param {?} item
+     * @return {?}
+     */
+    toFunctions(item) {
+        // if item = join(enlist(valueOf(address.street),valueOf(address.city),valueOf(address.zipcode)),',')
+        let /** @type {?} */ i = -1;
+        let /** @type {?} */ j = -1;
+        let /** @type {?} */ k = -1;
+        let /** @type {?} */ c = 0;
+        let /** @type {?} */ json = {};
+        for (let /** @type {?} */ cindex = 0; cindex < item.length; cindex++) {
+            if (item[cindex] === '(') {
+                if (c === 0) {
+                    i = cindex;
+                }
+                c++;
+            }
+            else if (item[cindex] === ')') {
+                c--;
+                if (c === 0) {
+                    const /** @type {?} */ isArry = (json instanceof Array);
+                    j = cindex;
+                    if (!isArry && (j === (item.length - 1))) {
+                        json["name"] = item.substring(0, i);
+                        json["args"] = this.toFunctions(item.substring(i + 1, j));
+                    }
+                    else {
+                        if (!isArry) {
+                            json = [];
+                        }
+                        json.push({
+                            name: item.substring(k + 1, i),
+                            args: this.toFunctions(item.substring(i + 1, j))
+                        });
+                    }
+                }
+            }
+            else if (item[cindex] === ',') {
+                if (c === 0 && (cindex - 1 !== k)) {
+                    const /** @type {?} */ isArry = (json instanceof Array);
+                    if (k < 0) {
+                        if (i < 0) {
+                            if (!isArry) {
+                                json = [];
+                            }
+                            json.push({
+                                name: this.removeQuotes(item.substring(k + 1, cindex).replace(/~/g, ',')),
+                                args: []
+                            });
+                        }
+                        k = cindex;
+                    }
+                    else {
+                        const /** @type {?} */ x = this.removeQuotes(item.substring(k + 1, cindex).replace(/~/g, ','));
+                        if (x.indexOf('(') < 0) {
+                            if (json instanceof Array) {
+                                json.push(x);
+                            }
+                            else {
+                                json.args.push(x);
+                            }
+                        }
+                        k = cindex;
+                    }
+                }
+                else if (c === 0 && (cindex - 1 === k)) {
+                    k = cindex;
+                }
+            }
+        }
+        if (i >= 0 && j < 0) {
+            throw "incorrect method call declaration. Missing ')'";
+        }
+        else if (i < 0 && j > 0) {
+            throw "incorrect method call declaration. Missing '('";
+        }
+        else if (i < 0 && j < 0 && k < 0) {
+            return item;
+        }
+        else if (c === 0 && k > j) {
+            if (json instanceof Array) {
+                json.push(this.removeQuotes(item.substring(k + 1, item.length).replace(/~/g, ',')));
+            }
+            else {
+                json.args.push(this.removeQuotes(item.substring(k + 1, item.length).replace(/~/g, ',')));
+            }
+        }
+        return json;
+    }
+    /**
+     * @param {?} template
+     * @param {?} nodes
+     * @return {?}
+     */
+    templateNodes(template, nodes) {
+        let /** @type {?} */ list = [];
+        let /** @type {?} */ n = nodes;
+        if (template.context === "root") {
+            if (!this.rootNode) {
+                throw "Unable to find root node to perform operation.";
+            }
+            n = this.nodeList(this.rootNode);
+        }
+        if (template.match && template.match.length) {
+            const /** @type {?} */ path = new JXPath(template.match);
+            n.map((node) => {
+                if (path.valueOf(node) === template.value) {
+                    list.push(node);
+                }
+            });
+        }
+        else if (nodes) {
+            list = n;
+        }
+        return list;
+    }
+    /**
+     * @param {?} left
+     * @param {?} operation
+     * @param {?} right
+     * @return {?}
+     */
+    evaluateOperation(left, operation, right) {
+        let /** @type {?} */ result = false;
+        if (right instanceof Array) {
+            if (operation === "=") {
+                right.map((k) => {
+                    if (left === k) {
+                        result = true;
+                    }
+                });
+            }
+            else if (operation === "in") {
+                right.map((k) => {
+                    if (k.indexOf(left) >= 0) {
+                        result = true;
+                    }
+                });
+            }
+            else if (operation === "!") {
+                let /** @type {?} */ f = false;
+                right.map((k) => {
+                    if (left === k) {
+                        f = true;
+                    }
+                });
+                result = !f;
+            }
+        }
+        else {
+            if (operation === "=") {
+                result = (left == right);
+            }
+            else if (operation === "in") {
+                result = (right.indexOf(left) >= 0);
+            }
+            else if (operation === "!") {
+                result = (left !== right);
+            }
+            else if (operation === ">") {
+                result = (parseFloat(left) > parseFloat(right));
+            }
+            else if (operation === "<") {
+                result = (parseFloat(left) < parseFloat(right));
+            }
+        }
         return result;
     }
     /**
@@ -486,41 +661,32 @@ class Styler {
         return list;
     }
     /**
+     * @param {?} list
      * @return {?}
      */
-    registerMethods() {
-        this.supportedMethods["apply"] = this.apply;
-        this.supportedMethods["valueOf"] = this.valueOf;
-        this.supportedMethods["each"] = this.each;
-        this.supportedMethods["split"] = this.split;
-        this.supportedMethods["concat"] = this.concatenate;
-        this.supportedMethods["enlist"] = this.enlist;
-        this.supportedMethods["join"] = this.join;
-        this.supportedMethods["match"] = this.match;
-        this.supportedMethods["filter"] = this.filter;
-        this.supportedMethods["select"] = this.select;
-        this.supportedMethods["style"] = this.style;
-        this.supportedMethods["offPool"] = this.offPool;
-    }
-    /**
-     * @return {?}
-     */
-    prepareTransformations() {
-        const /** @type {?} */ list = this.transformations.templates;
+    initTemplates(list) {
         list.map((template) => {
             Object.keys(template.style).map((key) => {
-                template.style[key] = this.parseFunctions(template.style[key]);
+                template.style[key] = this.toQueryOperation(template.style[key]);
             });
             this.templates[template.name] = template;
         });
     }
     /**
+     * @param {?} templates
      * @return {?}
      */
-    preparePools() {
-        const /** @type {?} */ list = Object.keys(this.templates);
+    initPools(templates) {
+        const /** @type {?} */ list = Object.keys(templates);
+        if (list.length === 0) {
+            throw "Missing Template definitions.";
+        }
+        if (!this.rootNode) {
+            throw "Unable to find root node to perform operation.";
+        }
+        this.globalPool = {};
         list.map((template) => {
-            const /** @type {?} */ t = this.templates[template];
+            const /** @type {?} */ t = this.templateForName(template);
             if (t.inPool) {
                 const /** @type {?} */ path = new JXPath(t.inPool);
                 const /** @type {?} */ path2 = path.fromLast();
@@ -537,113 +703,54 @@ class Styler {
             }
         });
     }
+}
+
+/**
+ * @fileoverview added by tsickle
+ * @suppress {checkTypes} checked by tsc
+ */
+/**
+ * @record
+ */
+
+class Styler {
     /**
-     * @param {?} str
-     * @return {?}
+     * @param {?} transformations
      */
-    removeQuotes(str) {
-        return (str.length && str[0] === '\'' && str[str.length - 1] === '\'') ? str.substring(1, str.length - 1) : str;
+    constructor(transformations) {
+        this.inquirer = new Inquirer();
+        this.transformations = transformations;
+        this.inquirer.initTemplates(this.transformations.templates);
     }
     /**
-     * @param {?} item
+     * @param {?} node
      * @return {?}
      */
-    parseFunctions(item) {
-        // if item = join(enlist(valueOf(address.street),valueOf(address.city),valueOf(address.zipcode)),',')
-        let /** @type {?} */ i = -1;
-        let /** @type {?} */ j = -1;
-        let /** @type {?} */ k = -1;
-        let /** @type {?} */ c = 0;
-        let /** @type {?} */ json = {};
-        for (let /** @type {?} */ cindex = 0; cindex < item.length; cindex++) {
-            if (item[cindex] === '(') {
-                if (c === 0) {
-                    i = cindex;
-                }
-                c++;
-            }
-            else if (item[cindex] === ')') {
-                c--;
-                if (c === 0) {
-                    const /** @type {?} */ isArry = (json instanceof Array);
-                    j = cindex;
-                    if (!isArry && (j === (item.length - 1))) {
-                        json["name"] = item.substring(0, i);
-                        json["args"] = this.parseFunctions(item.substring(i + 1, j));
-                    }
-                    else {
-                        if (!isArry) {
-                            json = [];
-                        }
-                        json.push({
-                            name: item.substring(k + 1, i),
-                            args: this.parseFunctions(item.substring(i + 1, j))
-                        });
-                    }
-                }
-            }
-            else if (item[cindex] === ',') {
-                if (c === 0 && (cindex - 1 !== k)) {
-                    const /** @type {?} */ isArry = (json instanceof Array);
-                    if (k < 0) {
-                        if (i < 0) {
-                            if (!isArry) {
-                                json = [];
-                            }
-                            json.push({
-                                name: this.removeQuotes(item.substring(k + 1, cindex)),
-                                args: []
-                            });
-                        }
-                        k = cindex;
-                    }
-                    else if ((item[cindex - 1] === '\'' || (item[cindex - 1] === ' ' && item[cindex - 2] === '\'')) &&
-                        (((cindex < item.length - 1) && item[cindex + 1] === '\'') ||
-                            ((cindex < item.length - 2) && item[cindex + 1] === ' ' && item[cindex + 2] === '\''))) {
-                        if (json instanceof Array) {
-                            json.push(",");
-                        }
-                        else {
-                            json.args.push(",");
-                        }
-                        k = cindex + 1;
-                    }
-                    else {
-                        const /** @type {?} */ x = item.substring(k + 1, cindex);
-                        if (x.indexOf('\'') < 0) {
-                            if (json instanceof Array) {
-                                json.push(x);
-                            }
-                            else {
-                                json.args.push(x);
-                            }
-                        }
-                        k = cindex;
-                    }
-                }
-                else if (c === 0 && (cindex - 1 === k)) {
-                    k = cindex;
-                }
-            }
+    changeRootNode(node) {
+        this.inquirer.setRootNode(node);
+    }
+    /**
+     * @return {?}
+     */
+    transform() {
+        let /** @type {?} */ result = [];
+        const /** @type {?} */ template = this.inquirer.templateForName(this.transformations.rootTemplate);
+        if (template) {
+            const /** @type {?} */ list = this.inquirer.nodeList(null);
+            const /** @type {?} */ attrs = Object.keys(template.style);
+            list.map((item) => {
+                const /** @type {?} */ node = {};
+                attrs.map((attr) => {
+                    node[attr] = this.inquirer.invoke(template.style[attr], item);
+                });
+                result.push(node);
+            });
         }
-        if (i >= 0 && j < 0) {
-            throw "incorrect method call declaration. Missing ')'";
+        if (this.transformations.onResult && this.transformations.onResult.length) {
+            const /** @type {?} */ functions = this.inquirer.toQueryOperation(this.transformations.onResult);
+            result = this.inquirer.invoke(functions, result);
         }
-        else if (i < 0 && j > 0) {
-            throw "incorrect method call declaration. Missing '('";
-        }
-        else if (i < 0 && j < 0 && k < 0) {
-            return item;
-        }
-        else if (c === 0 && k > j) {
-            if (json instanceof Array) {
-                json.push(this.removeQuotes(item.substring(k + 1, item.length).trim()));
-            }
-            else {
-                json.args.push(this.removeQuotes(item.substring(k + 1, item.length).trim()));
-            }
-        }
-        return json;
+        return result;
     }
 }
 
@@ -655,6 +762,7 @@ class XjsltComponent {
     constructor() {
         this.node = {};
         this.ontransformation = new EventEmitter();
+        this.onerror = new EventEmitter();
     }
     /**
      * @return {?}
@@ -665,7 +773,12 @@ class XjsltComponent {
                 this.styler = new Styler(this.transformations);
             }
             this.styler.changeRootNode(this.node);
-            this.ontransformation.emit(this.styler.transform());
+            try {
+                this.ontransformation.emit(this.styler.transform());
+            }
+            catch (/** @type {?} */ e) {
+                this.onerror.emit(e.message);
+            }
         }
     }
     /**
@@ -695,6 +808,7 @@ XjsltComponent.propDecorators = {
     "node": [{ type: Input, args: ["node",] },],
     "transformations": [{ type: Input, args: ["transformations",] },],
     "ontransformation": [{ type: Output, args: ["ontransformation",] },],
+    "onerror": [{ type: Output, args: ["onerror",] },],
 };
 
 /**
@@ -737,5 +851,5 @@ XjsltModule.ctorParameters = () => [];
  * Generated bundle index. Do not edit.
  */
 
-export { XjsltComponent, XjsltModule };
+export { XjsltComponent, Styler, JXPath, Inquirer, XjsltModule };
 //# sourceMappingURL=extensible-json-transformations.js.map

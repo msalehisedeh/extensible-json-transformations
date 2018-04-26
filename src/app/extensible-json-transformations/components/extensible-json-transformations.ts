@@ -29,13 +29,20 @@ export class XjsltComponent implements OnInit, OnChanges  {
   @Output("ontransformation")
   ontransformation = new EventEmitter();
 
+  @Output("onerror")
+  onerror = new EventEmitter();
+
   ngOnInit() {
     if (this.node && this.transformations) {
       if(!this.styler) {
         this.styler = new Styler(this.transformations);
       }
       this.styler.changeRootNode(this.node);
-      this.ontransformation.emit(this.styler.transform());
+      try {
+        this.ontransformation.emit(this.styler.transform());
+      } catch(e) {
+        this.onerror.emit(e.message);
+      }
     }
   }
   ngOnChanges(chages) {
