@@ -43,12 +43,14 @@ class JXPath {
         for (let /** @type {?} */ i = 0; i < this.path.length; i++) {
             if (pItem instanceof Array) {
                 const /** @type {?} */ list = [];
-                pItem.map((item) => {
+                for (let /** @type {?} */ q = 0; q < this.path.length; q++) {
+                    const /** @type {?} */ item = pItem[q];
                     const /** @type {?} */ x = this._nodeOf(item[path[i]], path.slice(i + 1, path.length));
                     if (x && x !== null) {
                         list.push(x);
                     }
-                });
+                }
+                
                 if (list.length) {
                     pItem = list;
                 }
@@ -77,9 +79,10 @@ class JXPath {
         for (let /** @type {?} */ i = 0; i < this.path.length; i++) {
             if (pItem instanceof Array) {
                 const /** @type {?} */ list = [];
-                pItem.map((item) => {
+                for (let /** @type {?} */ q = 0; q < this.path.length; q++) {
+                    const /** @type {?} */ item = pItem[q];
                     list.push(this._valueOf(item[path[i]], path.slice(i + 1, path.length)));
-                });
+                }
                 pItem = list;
                 break;
             }
@@ -98,6 +101,7 @@ class Inquirer {
         this.supportedMethods = {};
         this.templates = {};
         this.globalPool = {};
+        this.pathPool = {};
         this.addSupportingMethod("valueOf", this.valueOf);
         this.addSupportingMethod("each", this.each);
         this.addSupportingMethod("split", this.split);
@@ -114,12 +118,31 @@ class Inquirer {
         this.addSupportingMethod("offPool", this.offPool);
     }
     /**
+     * @param {?} path
+     * @return {?}
+     */
+    jXPathFor(path) {
+        let /** @type {?} */ p = this.pathPool[path];
+        if (!p) {
+            p = new JXPath(path);
+            this.pathPool[path] = p;
+        }
+        return p;
+    }
+    /**
      * @param {?} node
      * @return {?}
      */
     setRootNode(node) {
-        this.rootNode = node;
+        this.rootNode = this.nodeList(node);
         this.initPools(this.templates);
+    }
+    /**
+     * @param {?} node
+     * @return {?}
+     */
+    setContextNode(node) {
+        this.contextNode = node;
     }
     /**
      * @param {?} name
@@ -141,14 +164,15 @@ class Inquirer {
         else {
             const /** @type {?} */ x = Object.keys(item);
             list = [];
-            x.map((xItem) => {
+            for (let /** @type {?} */ t = 0; t < x.length; t++) {
+                const /** @type {?} */ xItem = x[t];
                 if (item[xItem] instanceof Array) {
                     list = list.concat(item[xItem]);
                 }
                 else {
                     list.push(item[xItem]);
                 }
-            });
+            }
         }
         return list;
     }
@@ -161,46 +185,54 @@ class Inquirer {
         const /** @type {?} */ mothods = this.toQueryOperation(command);
         if (node instanceof Array) {
             let /** @type {?} */ list = [];
-            node.map((n) => {
-                list = list.concat(this.invoke(mothods, n));
-            });
+            for (let /** @type {?} */ q = 0; q < node.length; q++) {
+                const /** @type {?} */ nodeItem = node[q];
+                list = list.concat(this.invoke(mothods, nodeItem));
+            }
+            
             return list;
         }
         return this.invoke(mothods, node);
     }
     /**
-     * @param {?} method
+     * @param {?} operation
      * @param {?} node
      * @return {?}
      */
-    invoke(method, node) {
+    invoke(operation, node) {
         let /** @type {?} */ list = [];
-        if (typeof method === 'object') {
-            if (method.args instanceof Array) {
-                if (method.args.length)
-                    method.args.map((arg) => {
+        if ((typeof node === "object") && (node instanceof Array) && node.length === 0) {
+            list = [];
+        }
+        else if (typeof operation === 'object') {
+            const /** @type {?} */ f = this.supportedMethods[operation.name];
+            if (f) {
+                if (operation.args instanceof Array) {
+                    for (let /** @type {?} */ a = 0; a < operation.args.length; a++) {
+                        const /** @type {?} */ arg = operation.args[a];
                         if (arg.name) {
                             list.push(this.invoke(arg, node));
                         }
                         else {
                             list.push(arg);
                         }
-                    });
-            }
-            else {
-                list.push(method.args);
-            }
-            list.push(node);
-            const /** @type {?} */ f = this.supportedMethods[method.name];
-            if (f) {
+                    }
+                }
+                else {
+                    list.push(operation.args);
+                }
+                // list.push(node);
+                const /** @type {?} */ oldContext = this.contextNode;
+                this.contextNode = node;
                 list = f.apply(this, list);
+                this.contextNode = oldContext;
             }
             else {
-                list = method.name;
+                list = operation.name;
             }
         }
         else {
-            list = method;
+            list = operation;
         }
         return list;
     }
@@ -216,37 +248,37 @@ class Inquirer {
         if (left instanceof Array) {
             if (right instanceof Array) {
                 if (left.length > right.length) {
-                    left.map((item, index) => {
-                        const /** @type {?} */ x = right.length > index ? right[index] : "";
-                        result.push(item + delim + x);
-                    });
+                    for (let /** @type {?} */ q = 0; q < left.length; q++) {
+                        result.push(left[q] + delim + (right.length > q ? right[q] : ""));
+                    }
+                    
                 }
                 else {
-                    right.map((item, index) => {
-                        const /** @type {?} */ x = left.length > index ? left[index] : "";
-                        result.push(x + delim + item);
-                    });
+                    for (let /** @type {?} */ q = 0; q < right.length; q++) {
+                        result.push((left.length > q ? left[q] : "") + delim + right[q]);
+                    }
+                    
                 }
             }
             else {
-                left.map((item) => {
-                    result.push(item + delim + right);
-                });
+                for (let /** @type {?} */ q = 0; q < left.length; q++) {
+                    result.push(left[q] + delim + right);
+                }
+                
             }
         }
         else {
             if (right instanceof Array) {
-                right.map((item) => {
-                    result.push(left + delim + item);
-                });
+                for (let /** @type {?} */ q = 0; q < right.length; q++) {
+                    result.push(left + delim + right[q]);
+                }
+                
             }
             else {
-                result.push(left);
-                result.push(delim);
-                result.push(right);
+                result.push(left + delim + right);
             }
         }
-        return result.join("");
+        return result.length > 1 ? result : result[0];
     }
     /**
      * @param {...?} args
@@ -260,8 +292,8 @@ class Inquirer {
      * @return {?}
      */
     valueOf(...args) {
-        const /** @type {?} */ jpath = new JXPath(args[0]);
-        return jpath.valueOf(args[1]);
+        const /** @type {?} */ jpath = this.jXPathFor(args[0]);
+        return jpath.valueOf(this.contextNode);
     }
     /**
      * @param {...?} args
@@ -269,13 +301,12 @@ class Inquirer {
      */
     each(...args) {
         const /** @type {?} */ list = [];
-        args[0].map((item) => {
-            const /** @type {?} */ method = {
-                name: "valueOf",
-                args: args[1]
-            };
-            list.push(this.invoke(method, item));
-        });
+        const /** @type {?} */ method = { name: "valueOf", args: args[1] };
+        for (let /** @type {?} */ q = 0; q < args[0].length; q++) {
+            const /** @type {?} */ node = args[0][q];
+            list.push(this.invoke(method, node));
+        }
+        
         return list;
     }
     /**
@@ -284,7 +315,7 @@ class Inquirer {
      */
     enlist(...args) {
         const /** @type {?} */ list = [];
-        args.slice(0, args.length - 1).map((item) => {
+        args.map((item) => {
             list.push(item); // make sure last two item are not node and template
         });
         return list;
@@ -294,14 +325,41 @@ class Inquirer {
      * @return {?}
      */
     join(...args) {
-        return args[0].join(args[1]);
+        return args[0].length > 1 ? args[0].join(args[1]) : args[0];
     }
     /**
      * @param {...?} args
      * @return {?}
      */
     apply(...args) {
-        return this.match(args[0], args[1], "=", args[2], args[3]);
+        const /** @type {?} */ path = this.jXPathFor(args[1]);
+        const /** @type {?} */ path2 = path.fromLast();
+        const /** @type {?} */ values = args[2];
+        let /** @type {?} */ list = [];
+        for (let /** @type {?} */ c = 0; c < this.rootNode.length; c++) {
+            const /** @type {?} */ node = this.rootNode[c];
+            const /** @type {?} */ value = path.nodeOf(node);
+            if (value instanceof Array) {
+                for (let /** @type {?} */ d = 0; d < value.length; d++) {
+                    const /** @type {?} */ v = value[d];
+                    const /** @type {?} */ x = path2.valueOf(v);
+                    if (this.evaluateOperation(x, "=", values)) {
+                        list.push(v);
+                    }
+                }
+            }
+            else {
+                const /** @type {?} */ x = path2.valueOf(node);
+                if (this.evaluateOperation(x, "=", values)) {
+                    list.push(node);
+                }
+            }
+        }
+        
+        if (list.length) {
+            list = this.style(args[0], list);
+        }
+        return list;
     }
     /**
      * @param {...?} args
@@ -310,24 +368,29 @@ class Inquirer {
     match(...args) {
         const /** @type {?} */ template = this.templateForName(args[0]);
         if (!template) {
-            throw "Missing Template definition for '" + args[0] + "'.";
+            throw {
+                message: "Missing Template definition for '" + args[0] + "'.",
+                stack: new Error().stack
+            };
         }
-        const /** @type {?} */ path = new JXPath(args[1]);
+        const /** @type {?} */ path = this.jXPathFor(args[1]);
         const /** @type {?} */ path2 = path.fromLast();
         const /** @type {?} */ operation = args[2];
         const /** @type {?} */ values = args[3];
-        const /** @type {?} */ nodes = this.templateNodes(template, args[4]);
+        const /** @type {?} */ nodes = this.templateNodes(template, this.contextNode);
         const /** @type {?} */ list = [];
         if (nodes instanceof Array) {
-            nodes.map((node) => {
+            for (let /** @type {?} */ c = 0; c < nodes.length; c++) {
+                const /** @type {?} */ node = nodes[c];
                 const /** @type {?} */ value = path.nodeOf(node);
                 if (value instanceof Array) {
-                    value.map((v) => {
+                    for (let /** @type {?} */ d = 0; d < value.length; d++) {
+                        const /** @type {?} */ v = value[d];
                         const /** @type {?} */ x = path2.valueOf(v);
                         if (this.evaluateOperation(x, operation, values)) {
                             list.push(v);
                         }
-                    });
+                    }
                 }
                 else {
                     const /** @type {?} */ x = path2.valueOf(node);
@@ -335,17 +398,19 @@ class Inquirer {
                         list.push(node);
                     }
                 }
-            });
+            }
+            
         }
         else {
             const /** @type {?} */ value = path.nodeOf(nodes);
             if (value instanceof Array) {
-                value.map((v) => {
+                for (let /** @type {?} */ d = 0; d < value.length; d++) {
+                    const /** @type {?} */ v = value[d];
                     const /** @type {?} */ x = path2.valueOf(v);
                     if (this.evaluateOperation(x, operation, values)) {
                         list.push(v);
                     }
-                });
+                }
             }
             else {
                 const /** @type {?} */ x = path2.valueOf(nodes);
@@ -354,32 +419,34 @@ class Inquirer {
                 }
             }
         }
-        return this.style(args[0], list);
+        return list;
     }
     /**
      * @param {...?} args
      * @return {?}
      */
     filter(...args) {
-        const /** @type {?} */ path = new JXPath(args[0]);
+        const /** @type {?} */ path = this.jXPathFor(args[0]);
         const /** @type {?} */ operation = args[1];
         const /** @type {?} */ values = args[2];
         const /** @type {?} */ list = [];
-        args[3].map((node) => {
+        for (let /** @type {?} */ a = 0; a < this.contextNode.length; a++) {
+            const /** @type {?} */ node = this.contextNode[a];
             const /** @type {?} */ value = path.valueOf(node);
             if (value instanceof Array) {
-                value.map((v) => {
+                for (let /** @type {?} */ d = 0; d < value.length; d++) {
+                    const /** @type {?} */ v = value[d];
                     if (this.evaluateOperation(v, operation, values)) {
                         list.push(node);
                     }
-                });
+                }
             }
             else {
                 if (this.evaluateOperation(value, operation, values)) {
                     list.push(node);
                 }
             }
-        });
+        }
         return list;
     }
     /**
@@ -387,18 +454,19 @@ class Inquirer {
      * @return {?}
      */
     select(...args) {
-        const /** @type {?} */ path = new JXPath(args[0]);
+        const /** @type {?} */ path = this.jXPathFor(args[0]);
         let /** @type {?} */ list = [];
-        if (args[1] instanceof Array) {
-            args[1].map((node) => {
+        if (this.contextNode instanceof Array) {
+            for (let /** @type {?} */ d = 0; d < this.contextNode.length; d++) {
+                const /** @type {?} */ node = this.contextNode[d];
                 const /** @type {?} */ value = path.nodeOf(node);
                 if (value && value.length) {
                     list.push(node);
                 }
-            });
+            }
         }
         else {
-            const /** @type {?} */ value = path.nodeOf(args[1]);
+            const /** @type {?} */ value = path.nodeOf(this.contextNode);
             if (value && value.length) {
                 if (value instanceof Array) {
                     list = value;
@@ -417,17 +485,32 @@ class Inquirer {
     style(...args) {
         const /** @type {?} */ template = this.templateForName(args[0]);
         if (!template) {
-            throw "Missing Template definition for '" + args[0] + "'.";
+            throw {
+                message: "Missing Template definition for '" + args[0] + "'.",
+                stack: new Error().stack
+            };
         }
         const /** @type {?} */ result = [];
         const /** @type {?} */ attrs = Object.keys(template.style);
-        args[1].map((item) => {
+        if (args[1] instanceof Array) {
+            for (let /** @type {?} */ a = 0; a < args[1].length; a++) {
+                const /** @type {?} */ item = args[1][a];
+                const /** @type {?} */ node = {};
+                for (let /** @type {?} */ d = 0; d < attrs.length; d++) {
+                    const /** @type {?} */ attr = attrs[d];
+                    node[attr] = this.invoke(template.style[attr], item);
+                }
+                result.push(node);
+            }
+        }
+        else {
             const /** @type {?} */ node = {};
-            attrs.map((attr) => {
-                node[attr] = this.invoke(template.style[attr], item);
-            });
+            for (let /** @type {?} */ d = 0; d < attrs.length; d++) {
+                const /** @type {?} */ attr = attrs[d];
+                node[attr] = this.invoke(template.style[attr], args[1]);
+            }
             result.push(node);
-        });
+        }
         return result;
     }
     /**
@@ -534,10 +617,16 @@ class Inquirer {
             }
         }
         if (i >= 0 && j < 0) {
-            throw "incorrect method call declaration. Missing ')'";
+            throw {
+                message: "incorrect method call declaration. Missing ')'",
+                stack: new Error().stack
+            };
         }
         else if (i < 0 && j > 0) {
-            throw "incorrect method call declaration. Missing '('";
+            throw {
+                message: "incorrect method call declaration. Missing '('",
+                stack: new Error().stack
+            };
         }
         else if (i < 0 && j < 0 && k < 0) {
             return item;
@@ -559,23 +648,27 @@ class Inquirer {
      */
     templateNodes(template, nodes) {
         let /** @type {?} */ list = [];
-        let /** @type {?} */ n = nodes;
+        let /** @type {?} */ nodeList = nodes;
         if (template.context === "root") {
             if (!this.rootNode) {
-                throw "Unable to find root node to perform operation.";
+                throw {
+                    message: "Unable to find root node to perform operation.",
+                    stack: new Error().stack
+                };
             }
-            n = this.nodeList(this.rootNode);
+            nodeList = this.nodeList(this.rootNode);
         }
         if (template.match && template.match.length) {
-            const /** @type {?} */ path = new JXPath(template.match);
-            n.map((node) => {
+            const /** @type {?} */ path = this.jXPathFor(template.match);
+            for (let /** @type {?} */ z = 0; z < nodeList.length; z++) {
+                const /** @type {?} */ node = nodeList[z];
                 if (path.valueOf(node) === template.value) {
                     list.push(node);
                 }
-            });
+            }
         }
         else if (nodes) {
-            list = n;
+            list = nodeList;
         }
         return list;
     }
@@ -589,26 +682,31 @@ class Inquirer {
         let /** @type {?} */ result = false;
         if (right instanceof Array) {
             if (operation === "=") {
-                right.map((k) => {
-                    if (left === k) {
+                for (let /** @type {?} */ i = 0; i < right.length; i++) {
+                    if (left == right[i]) {
                         result = true;
+                        break;
                     }
-                });
+                }
             }
             else if (operation === "in") {
-                right.map((k) => {
-                    if (k.indexOf(left) >= 0) {
+                for (let /** @type {?} */ i = 0; i < right.length; i++) {
+                    if (right[i].indexOf(left) >= 0) {
                         result = true;
+                        break;
                     }
-                });
+                }
+                
             }
             else if (operation === "!") {
                 let /** @type {?} */ f = false;
-                right.map((k) => {
-                    if (left === k) {
+                for (let /** @type {?} */ i = 0; i < right.length; i++) {
+                    if (left == right[i]) {
                         f = true;
+                        break;
                     }
-                });
+                }
+                
                 result = !f;
             }
         }
@@ -638,24 +736,29 @@ class Inquirer {
     offPool(...args) {
         const /** @type {?} */ list = [];
         const /** @type {?} */ pool = this.globalPool[args[0]];
+        const /** @type {?} */ keys = args[1];
         if (!pool) {
-            throw "Attempting to access pool '" + args[0] + "' that is not created.";
+            throw {
+                message: "Attempting to access pool '" + args[0] + "' that is not created.",
+                stack: new Error().stack
+            };
         }
-        if (args[1] instanceof Array) {
-            args[1].map((key) => {
-                const /** @type {?} */ x = pool[key];
-                if (x) {
-                    list.push(x);
+        if (keys instanceof Array) {
+            for (let /** @type {?} */ z = 0; z < keys.length; z++) {
+                const /** @type {?} */ key = keys[z];
+                const /** @type {?} */ node = pool[key];
+                if (node) {
+                    list.push(node);
                 }
                 else {
                     // should we throw here?
                 }
-            });
+            }
         }
         else {
-            const /** @type {?} */ x = pool[args[1]];
-            if (x) {
-                list.push(x);
+            const /** @type {?} */ node = pool[keys];
+            if (node) {
+                list.push(node);
             }
         }
         return list;
@@ -665,12 +768,19 @@ class Inquirer {
      * @return {?}
      */
     initTemplates(list) {
-        list.map((template) => {
-            Object.keys(template.style).map((key) => {
-                template.style[key] = this.toQueryOperation(template.style[key]);
-            });
+        this.templates = {};
+        for (let /** @type {?} */ i = 0; i < list.length; i++) {
+            const /** @type {?} */ template = list[i];
+            const /** @type {?} */ styles = Object.keys(template.style);
+            for (let /** @type {?} */ j = 0; j < styles.length; j++) {
+                const /** @type {?} */ key = styles[j];
+                const /** @type {?} */ method = template.style[key];
+                if (typeof method === "string") {
+                    template.style[key] = this.toQueryOperation(method);
+                }
+            }
             this.templates[template.name] = template;
-        });
+        }
     }
     /**
      * @param {?} templates
@@ -679,29 +789,43 @@ class Inquirer {
     initPools(templates) {
         const /** @type {?} */ list = Object.keys(templates);
         if (list.length === 0) {
-            throw "Missing Template definitions.";
+            throw {
+                message: "Missing Template definitions.",
+                stack: new Error().stack
+            };
         }
         if (!this.rootNode) {
-            throw "Unable to find root node to perform operation.";
+            throw {
+                message: "Unable to find root node to perform operation.",
+                stack: new Error().stack
+            };
         }
         this.globalPool = {};
-        list.map((template) => {
+        for (let /** @type {?} */ i = 0; i < list.length; i++) {
+            const /** @type {?} */ template = list[i];
             const /** @type {?} */ t = this.templateForName(template);
             if (t.inPool) {
-                const /** @type {?} */ path = new JXPath(t.inPool);
-                const /** @type {?} */ path2 = path.fromLast();
-                const /** @type {?} */ nodes = path.nodeOf(this.rootNode);
-                this.globalPool[t.name] = {};
-                if (nodes instanceof Array) {
-                    nodes.map((node) => {
-                        this.globalPool[t.name][path2.valueOf(node)] = node;
-                    });
+                const /** @type {?} */ pool = {};
+                const /** @type {?} */ path = this.jXPathFor(t.inPool);
+                const /** @type {?} */ match = t.match;
+                const /** @type {?} */ nodes = this.rootNode;
+                if (match && t.value) {
+                    const /** @type {?} */ mpath = this.jXPathFor(match);
+                    for (let /** @type {?} */ k = 0; k < nodes.length; k++) {
+                        const /** @type {?} */ v = mpath.valueOf(nodes[k]);
+                        if (v === t.value) {
+                            pool[path.valueOf(nodes[k])] = nodes[k];
+                        }
+                    }
                 }
                 else {
-                    this.globalPool[t.name][path2.valueOf(nodes)] = nodes;
+                    for (let /** @type {?} */ k = 0; k < nodes.length; k++) {
+                        pool[path.valueOf(nodes[k])] = nodes[k];
+                    }
                 }
+                this.globalPool[t.name] = pool;
             }
-        });
+        }
     }
 }
 
@@ -736,15 +860,19 @@ class Styler {
         let /** @type {?} */ result = [];
         const /** @type {?} */ template = this.inquirer.templateForName(this.transformations.rootTemplate);
         if (template) {
-            const /** @type {?} */ list = this.inquirer.nodeList(null);
             const /** @type {?} */ attrs = Object.keys(template.style);
-            list.map((item) => {
-                const /** @type {?} */ node = {};
-                attrs.map((attr) => {
-                    node[attr] = this.inquirer.invoke(template.style[attr], item);
-                });
-                result.push(node);
-            });
+            const /** @type {?} */ nodeList = this.inquirer.templateNodes(template, this.inquirer.nodeList(null));
+            for (let /** @type {?} */ i = 0; i < nodeList.length; i++) {
+                const /** @type {?} */ currentNode = nodeList[i];
+                const /** @type {?} */ resultingNode = {};
+                for (let /** @type {?} */ j = 0; j < attrs.length; j++) {
+                    const /** @type {?} */ attr = attrs[j];
+                    resultingNode[attr] = this.inquirer.invoke(template.style[attr], currentNode);
+                }
+                
+                result.push(resultingNode);
+            }
+            
         }
         if (this.transformations.onResult && this.transformations.onResult.length) {
             const /** @type {?} */ functions = this.inquirer.toQueryOperation(this.transformations.onResult);
@@ -777,7 +905,8 @@ class XjsltComponent {
                 this.ontransformation.emit(this.styler.transform());
             }
             catch (/** @type {?} */ e) {
-                this.onerror.emit(e.message);
+                console.log(e);
+                this.onerror.emit(e);
             }
         }
     }

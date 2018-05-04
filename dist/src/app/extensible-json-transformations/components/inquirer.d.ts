@@ -1,6 +1,6 @@
 export interface Template {
     name: string;
-    match: string;
+    match?: string;
     value?: string;
     context: string;
     inPool?: string;
@@ -23,14 +23,18 @@ export declare class Inquirer {
     private supportedMethods;
     private templates;
     private rootNode;
+    private contextNode;
     private globalPool;
+    private pathPool;
     constructor();
+    private jXPathFor(path);
     setRootNode(node: any): void;
+    setContextNode(node: any): void;
     templateForName(name: any): any;
     nodeList(node: any): any;
     query(command: string, node: any): any;
-    invoke(method: QueryOperation, node: any): any;
-    concatenate(...args: any[]): string;
+    invoke(operation: QueryOperation, node: any): any;
+    concatenate(...args: any[]): any;
     split(...args: any[]): any;
     valueOf(...args: any[]): any;
     each(...args: any[]): any[];
@@ -45,7 +49,7 @@ export declare class Inquirer {
     private removeQuotes(str);
     toQueryOperation(methods: any): any;
     private toFunctions(item);
-    private templateNodes(template, nodes);
+    templateNodes(template: Template, nodes: any): any[];
     private evaluateOperation(left, operation, right);
     private offPool(...args);
     initTemplates(list: any): void;

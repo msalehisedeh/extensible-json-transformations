@@ -41,7 +41,8 @@ export class XjsltComponent implements OnInit, OnChanges  {
       try {
         this.ontransformation.emit(this.styler.transform());
       } catch(e) {
-        this.onerror.emit(e.message);
+        console.log(e)
+        this.onerror.emit(e);
       }
     }
   }

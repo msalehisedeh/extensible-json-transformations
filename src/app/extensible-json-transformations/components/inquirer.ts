@@ -1,6 +1,12 @@
+/*
+ * Intentionally avoiding use of map call on list to reduce the call stack numbers.
+ * On large scale JSON, call stack becomes a problem to be avoided.
+ */
+
+
 export interface Template {
     name: string,
-    match: string,
+    match?: string,
     value?: string,
     context: string,
     inPool?: string,
@@ -28,12 +34,13 @@ export class JXPath {
         for (let i = 0; i < this.path.length; i++) {
             if (pItem instanceof Array) {
                 const list = [];
-                pItem.map( (item) => {
+                for (let q = 0; q < this.path.length; q++) {
+                    const item = pItem[q];
                     const x = this._nodeOf(item[path[i]], path.slice(i+1,path.length));
-                    if(x && x !== null) {
-                    list.push(x);
+                    if (x && x !== null) {
+                        list.push(x);
                     }
-                });
+                };
                 if (list.length) {
                     pItem = list;
                 }
@@ -52,9 +59,10 @@ export class JXPath {
         for (let i = 0; i < this.path.length; i++) {
             if (pItem instanceof Array) {
               const list = [];
-              pItem.map( (item) => {
+              for (let q = 0; q < this.path.length; q++) {
+                const item = pItem[q];
                 list.push(this._valueOf(item[path[i]], path.slice(i+1,path.length)));
-              });
+              }
               pItem = list;
               break;
             } else if (path.length) {
@@ -72,7 +80,9 @@ export class Inquirer  {
     private supportedMethods = {};
     private templates = {};
     private rootNode;
+    private contextNode; // should be set before any call is made... this is to avoid call stack overflow in extremelt large JSON
     private globalPool = {};
+    private pathPool = {};// to avoid stackoverflow... and perform faster
 
     constructor() {
         this.addSupportingMethod("valueOf", this.valueOf);
@@ -91,9 +101,21 @@ export class Inquirer  {
         this.addSupportingMethod("offPool", this.offPool);
     }
 
-    public setRootNode(node:any) {
-        this.rootNode = node;
+    private jXPathFor(path: string) {
+        let p:JXPath = this.pathPool[path];
+        if (!p) {
+            p = new JXPath(path);
+            this.pathPool[path] = p;
+        }
+        return p;
+    }
+
+    setRootNode(node:any) {
+        this.rootNode = this.nodeList(node);
         this.initPools(this.templates);
+    }
+    setContextNode(node) {
+        this.contextNode = node;
     }
     templateForName(name) {
         return this.templates[name];
@@ -108,13 +130,14 @@ export class Inquirer  {
          } else {
              const x = Object.keys(item);
              list = [];
-             x.map( (xItem) => {
+             for (let t = 0; t < x.length; t++) {
+                const xItem = x[t];
                 if (item[xItem] instanceof Array) {
                     list = list.concat(item[xItem]);
-                 } else {
+                } else {
                     list.push(item[xItem]);
                 }
-             })
+            }
          }
          return list;
     }
@@ -125,45 +148,51 @@ export class Inquirer  {
 
         if (node instanceof Array) {
             let list = [];
-            node.map( (n) => {
-                list = list.concat(this.invoke(mothods, n))
-            });
+            for (let q = 0; q < node.length; q++) {
+                const nodeItem = node[q];
+                list = list.concat(this.invoke(mothods, nodeItem))
+            };
             return list;
         }
         return this.invoke(mothods, node);
     }
 
     // performs query with given list of query opertations
-    invoke(method:QueryOperation, node) {
+    invoke(operation:QueryOperation, node) {
         let list:any = [];
-        if (typeof method === 'object') {
-            if (method.args instanceof Array) {
-                if (method.args.length)
-                method.args.map( (arg) => {
-                    if (arg.name) {
-                        list.push(this.invoke(arg, node));
-                    } else {
-                        list.push(arg);
-                    }
-                });
-            } else {
-                list.push(method.args);
-            }
-            list.push(node);
-            const f = this.supportedMethods[method.name];
+        if ((typeof node === "object") && (node instanceof Array) && node.length === 0) {
+            list = [];
+        } else if (typeof operation === 'object') {
+            const f = this.supportedMethods[operation.name];
             if (f) {
+                if (operation.args instanceof Array) {
+                    for (let a = 0; a < operation.args.length; a++) {
+                        const arg = operation.args[a]
+                        if (arg.name) {
+                            list.push(this.invoke(arg, node));
+                        } else {
+                            list.push(arg);
+                        }
+                    }
+                } else {
+                    list.push(operation.args);
+                }
+                // list.push(node);
+                const oldContext = this.contextNode;
+                this.contextNode = node;
                 list = f.apply(this, list);
+                this.contextNode = oldContext;
             } else {
-                list = method.name;
+                list = operation.name;
             }
         } else {
-            list = method;
+            list = operation;
         }
         return list;
     }
 
     // concatenate(a, b, c): joins arguments into a string
-    // join args[0,1,2], node args[3]
+    // join args[0,1,2]
     concatenate(...args) {
         const left = args[0];
         const delim= args[1];
@@ -173,74 +202,95 @@ export class Inquirer  {
         if (left instanceof Array) {
             if (right instanceof Array) {
                 if (left.length > right.length) {
-                    left.map((item, index)=>{
-                        const x = right.length > index ? right[index] : "";
-                        result.push( item+delim+x);
-                    });
+                    for (let q = 0; q < left.length; q++) {
+                        result.push( left[q] + delim + (right.length > q ? right[q] : ""));
+                    };
                 } else {
-                    right.map((item, index)=>{
-                        const x = left.length > index ? left[index] : "";
-                        result.push( x+delim+item);
-                    });
+                    for (let q = 0; q < right.length; q++) {
+                        result.push( (left.length > q ? left[q] : "") + delim + right[q]);
+                    };
                 }
             } else {
-                left.map((item)=>{
-                    result.push( item+delim+right);
-                });
+                for (let q = 0; q < left.length; q++) {
+                    result.push( left[q] + delim + right);
+                };
             }
         } else {
             if (right instanceof Array) {
-                right.map((item)=>{
-                    result.push( left+delim+item);
-                });
+                for (let q = 0; q < right.length; q++) {
+                    result.push( left + delim + right[q]);
+                };
             } else {
-                result.push(left);
-                result.push(delim);
-                result.push(right);
+                result.push(left + delim + right);
             }
         }
-        return result.join("");
+        return result.length > 1 ? result : result[0];
     }
     // split(item,','): splits value into a list
-    // split args[0] with args[1], node args[2]
+    // split args[0] with args[1]
     split(...args) {
         return args[0] ? args[0].split(args[1]) : [];
     }
     // valueOf(path):  evaluates value of argument path
     // path = args[0], node to evaluate = args[1]
     valueOf(...args) {
-        const jpath = new JXPath(args[0]);
-        return jpath.valueOf(args[1]);
+        const jpath = this.jXPathFor(args[0]);
+        return jpath.valueOf(this.contextNode);
     }
     // each(list,method): For each item in list, invode the callback method
-    // each item of args[0] execute function of args[1], node args[2]
+    // each item of args[0] execute function of args[1]
     each(...args) {
         const list = [];
-        args[0].map( (item) => {
-            const method = {
-                name: "valueOf",
-                args: args[1]
-            }
-            list.push(this.invoke(method, item));
-        });
+        const method = {name: "valueOf", args: args[1]};
+        
+        for (let q = 0; q < args[0].length; q++) {
+            const node = args[0][q];
+            list.push(this.invoke(method, node));
+        };
         return list;
     }
     // enlist(...): insert argument values into a list
     enlist(...args) {
         const list = [];
-        args.slice(0, args.length - 1).map( (item) => {
+        args.map( (item) => {
             list.push(item); // make sure last two item are not node and template
         })
         return list;
     }
     // join(array,','): joins items of the list into a string
     join(...args) {
-        return args[0].join(args[1]);
+        return args[0].length > 1 ? args[0].join(args[1]) : args[0];
     }
-    // apply(template,path,array): apply the template in current context for each value 
-    // that matches the given path. args[0] name to apply, args[1] node
+    // apply(template,path,array): apply the template in root context for each value 
+    // that matches the given path. args[0] name to apply
     apply(...args) {
-        return this.match(args[0],args[1],"=",args[2],args[3]);
+        const path = this.jXPathFor(args[1]);
+        const path2= path.fromLast();
+        const values = args[2];
+        let list = [];
+
+        for (let c = 0; c < this.rootNode.length; c++) {
+            const node = this.rootNode[c];
+            const value = path.nodeOf(node);
+            if (value instanceof Array) {
+                for (let d = 0; d < value.length; d++) {
+                    const v = value[d];
+                    const x = path2.valueOf(v);
+                    if (this.evaluateOperation(x,"=", values)) {
+                        list.push(v);
+                    }
+                }
+            } else {
+                const x = path2.valueOf(node);
+                if (this.evaluateOperation(x,"=", values)) {
+                    list.push(node);
+                }
+            }
+        };
+        if (list.length) {
+            list = this.style(args[0], list);
+        }
+        return list;
     }
     // match(template,path,operation,values): , node args[4]
     // for value of target in given template nodes, evaluate operation for given value(s). 
@@ -248,40 +298,46 @@ export class Inquirer  {
         const template:Template = this.templateForName(args[0]);
 
         if (!template) {
-            throw "Missing Template definition for '" + args[0] + "'.";
+            throw {
+                message: "Missing Template definition for '" + args[0] + "'.",
+                stack: new Error().stack
+            };
         }
-        const path = new JXPath(args[1]);
+        const path = this.jXPathFor(args[1]);
         const path2= path.fromLast();
         const operation = args[2];
         const values = args[3];
-        const nodes = this.templateNodes(template, args[4])
+        const nodes = this.templateNodes(template, this.contextNode)
         const list = [];
         if (nodes instanceof Array) {
-            nodes.map( (node) => {
+            for (let c = 0; c < nodes.length; c++) {
+                const node = nodes[c];
                 const value = path.nodeOf(node);
                 if (value instanceof Array) {
-                    value.map((v)=>{
+                    for (let d = 0; d < value.length; d++) {
+                        const v = value[d];
                         const x = path2.valueOf(v);
                         if (this.evaluateOperation(x,operation, values)) {
                             list.push(v);
                         }
-                    });
+                    }
                 } else {
                     const x = path2.valueOf(node);
                     if (this.evaluateOperation(x,operation, values)) {
                         list.push(node);
                     }
                 }
-            });
+            };
         } else {
             const value = path.nodeOf(nodes);
             if (value instanceof Array) {
-                value.map((v)=>{
+                for (let d = 0; d < value.length; d++) {
+                    const v = value[d];
                     const x = path2.valueOf(v);
                     if (this.evaluateOperation(x,operation, values)) {
                         list.push(v);
                     }
-                });
+                }
             } else {
                 const x = path2.valueOf(nodes);
                 if (this.evaluateOperation(x,operation, values)) {
@@ -290,44 +346,47 @@ export class Inquirer  {
             }
         
         }
-       return this.style(args[0], list);
+       return list;
     }
     // filter(path,operation,value): for value of target in current context, 
     // evaluate operation for given value(s). Supported operations are `=,<,>,in,!`. 'in' for list values mean contains and for string value means indexOf. '!' means not equal or not in.
     filter(...args) {
-        const path = new JXPath(args[0]);
+        const path = this.jXPathFor(args[0]);
         const operation = args[1];
         const values = args[2];
         const list = [];
-        args[3].map( (node) => {
+        for (let a = 0; a < this.contextNode.length; a++) {
+            const node = this.contextNode[a];
             const value = path.valueOf(node);
             if (value instanceof Array) {
-                value.map((v)=>{
+                for (let d = 0; d < value.length; d++) {
+                    const v = value[d];
                     if (this.evaluateOperation(v,operation, values)) {
                         list.push(node);
                     }
-                });
+                }
             } else {
                 if (this.evaluateOperation(value,operation, values)) {
                     list.push(node);
                 }
             }
-        });
+        }
         return list;
     }
     // select(path): select the nodes with given path in current context
     select(...args) {
-        const path = new JXPath(args[0]);
+        const path = this.jXPathFor(args[0]);
         let list = [];
-        if(args[1] instanceof Array) {
-            args[1].map( (node) => {
+        if (this.contextNode instanceof Array) {
+            for (let d = 0; d < this.contextNode.length; d++) {
+                const node = this.contextNode[d];
                 const value = path.nodeOf(node);
                 if (value && value.length) {
                     list.push(node);
                 }
-            });
+            }
         } else {
-            const value = path.nodeOf(args[1]);
+            const value = path.nodeOf(this.contextNode);
             if (value && value.length) {
                 if (value instanceof Array) {
                     list = value;
@@ -343,19 +402,33 @@ export class Inquirer  {
         const template:Template = this.templateForName(args[0]);
 
         if (!template) {
-            throw "Missing Template definition for '" + args[0] + "'.";
+            throw {
+                message: "Missing Template definition for '" + args[0] + "'.",
+                stack: new Error().stack
+            };
         }
 
         const result = [];
         const attrs = Object.keys(template.style);
     
-        args[1].map( (item) => {
+        if (args[1] instanceof Array) {
+            for (let a = 0; a < args[1].length; a++) {
+                const item = args[1][a];
+                const node = {};
+                for (let d = 0; d < attrs.length; d++) {
+                    const attr = attrs[d];
+                    node[attr] = this.invoke(template.style[attr], item);
+                }
+                result.push(node);
+            }
+        } else {
             const node = {};
-            attrs.map( (attr) => {
-                node[attr] = this.invoke(template.style[attr], item);
-            });
+            for (let d = 0; d < attrs.length; d++) {
+                const attr = attrs[d];
+                node[attr] = this.invoke(template.style[attr], args[1]);
+            }
             result.push(node);
-        })
+        }
         return result;
     }
     addSupportingMethod(name, method) {
@@ -383,13 +456,13 @@ export class Inquirer  {
         let k = -1;
         let c = 0;
         let json: any = {};
-        for(let cindex = 0; cindex < item.length; cindex++) {
+        for (let cindex = 0; cindex < item.length; cindex++) {
             if (item[cindex] === '(') {
                 if (c === 0) {
                     i = cindex;
                 }
                 c++;
-            } else if(item[cindex] === ')') {
+            } else if (item[cindex] === ')') {
                 c--;
                 if (c === 0){
                     const isArry = (json instanceof Array);
@@ -440,9 +513,15 @@ export class Inquirer  {
             }
         }
         if (i >= 0 && j < 0) {
-            throw "incorrect method call declaration. Missing ')'"
+            throw {
+                message: "incorrect method call declaration. Missing ')'",
+                stack: new Error().stack
+            };
         } else if (i<0 && j>0) {
-            throw "incorrect method call declaration. Missing '('"
+            throw {
+                message: "incorrect method call declaration. Missing '('",
+                stack: new Error().stack
+            };
         }else if (i < 0 && j < 0 && k < 0) {
             return item;
         }else if (c === 0 && k > j) {
@@ -455,26 +534,30 @@ export class Inquirer  {
         return json;
     }
 
-    private templateNodes(template:Template, nodes) {
+    templateNodes(template:Template, nodes) {
         let list = [];
-        let n = nodes;
+        let nodeList = nodes;
 
         if (template.context === "root") {
             if (!this.rootNode) {
-                throw "Unable to find root node to perform operation."
+                throw {
+                    message:"Unable to find root node to perform operation.",
+                    stack: new Error().stack
+                };
             }
-            n = this.nodeList(this.rootNode);
+            nodeList = this.nodeList(this.rootNode);
         }    
-        if(template.match && template.match.length) {
-            const path = new JXPath(template.match);
+        if (template.match && template.match.length) {
+            const path = this.jXPathFor(template.match);
 
-            n.map( (node) => {
+            for (let z = 0; z < nodeList.length; z++) {
+                const node = nodeList[z];
                 if (path.valueOf(node) === template.value) {
                     list.push(node);
                 }
-            });         
-        } else if(nodes) {
-            list = n;
+            }       
+        } else if (nodes) {
+            list = nodeList;
         }
         return list;
     }
@@ -484,24 +567,27 @@ export class Inquirer  {
         let result = false;
         if (right instanceof Array) {
             if (operation === "=") {
-                right.map( (k)=> {
-                    if(left === k){
+                for (let i=0;i<right.length;i++){
+                    if (left == right[i]){
                         result = true;
+                        break;
                     }
-                });
+                }
             } else if (operation === "in") {
-                right.map( (k)=> {
-                    if(k.indexOf(left) >= 0){
+                for (let i=0;i<right.length;i++){
+                    if (right[i].indexOf(left) >= 0){
                         result = true;
+                        break;
                     }
-                });
+                };
             } else if (operation === "!") {
                 let f = false;
-                right.map( (k)=> {
-                    if(left === k){
+                for (let i=0;i<right.length;i++){
+                    if (left == right[i]){
                         f = true;
+                        break;
                     }
-                });
+                };
                 result = !f;
             }
 
@@ -525,63 +611,88 @@ export class Inquirer  {
     private offPool(...args) {
         const list = [];
         const pool = this.globalPool[args[0]];
+        const keys = args[1];
         if (!pool) {
-            throw "Attempting to access pool '" + args[0] + "' that is not created."
+            throw {
+                message: "Attempting to access pool '" + args[0] + "' that is not created.",
+                stack: new Error().stack
+            };
         }
-        if (args[1] instanceof Array){
-            args[1].map( (key) => {
-                const x = pool[key];
-                if(x) {
-                    list.push(x);
+        if (keys instanceof Array){
+            for (let z=0; z < keys.length; z++) {
+                const key = keys[z];
+                const node = pool[key];
+                if (node) {
+                    list.push(node);
                 } else {
                     // should we throw here?
                 }
-            });
+            }
         } else {
-            const x = pool[args[1]];
-            if(x) {
-                list.push(x);
+            const node = pool[keys];
+            if (node) {
+                list.push(node);
             }
         }
         return list;
     }
    
     initTemplates(list) {
-        list.map( (template: any) => {
-            Object.keys(template.style).map( (key) => {
-                template.style[key] = this.toQueryOperation(template.style[key]);
-            });
+        this.templates = {};
+        for (let i=0; i < list.length; i++){
+            const template: any= list[i];
+            const styles = Object.keys(template.style)
+            for (let j = 0; j < styles.length; j++) {
+                const key = styles[j];
+                const method = template.style[key];
+                if (typeof method === "string") {
+                    template.style[key] = this.toQueryOperation(method);
+                }
+            }
             this.templates[template.name] = template;
-        });
+        }
     }
     initPools(templates) {
         const list = Object.keys(templates);
         if (list.length === 0) {
-            throw "Missing Template definitions.";
+            throw {
+                message: "Missing Template definitions.",
+                stack: new Error().stack
+            };
         }
         if (!this.rootNode) {
-            throw "Unable to find root node to perform operation."
+            throw {
+                message: "Unable to find root node to perform operation.",
+                stack: new Error().stack
+            };
         }
 
         this.globalPool = {};
 
-        list.map( (template: string) => {
+        for (let i=0; i < list.length; i++){
+            const template: string = list[i];
             const t = this.templateForName(template);
             if (t.inPool) {
                 const pool = {};
-                const path = new JXPath(t.inPool);
-                const path2= path.fromLast();
-                const nodes= path.nodeOf(this.rootNode);
-                this.globalPool[t.name] = {};
-
-                if (nodes instanceof Array) {
-                    nodes.map( (node) => {
-                        this.globalPool[t.name][path2.valueOf(node)] = node;
-                    });
+                const path = this.jXPathFor(t.inPool);
+                const match= t.match;
+                const nodes= this.rootNode;
+                if (match && t.value) {
+                    const mpath = this.jXPathFor(match);
+                    
+                    for (let k=0; k < nodes.length; k++){
+                        const v = mpath.valueOf(nodes[k]);
+                        if (v === t.value) {
+                            pool[path.valueOf(nodes[k])] = nodes[k];
+                        }
+                    }
                 } else {
-                    this.globalPool[t.name][path2.valueOf(nodes)] = nodes;
+                    for (let k=0; k < nodes.length; k++){
+                        pool[path.valueOf(nodes[k])] = nodes[k];
+                    }
                 }
+                this.globalPool[t.name] = pool;
             }
-        });  
+        }
     }
 }

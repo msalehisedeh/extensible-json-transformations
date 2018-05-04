@@ -21,6 +21,8 @@ export class AppComponent {
   transformations = {};
   error = undefined;
   queryResponse = undefined;
+  transformationsCopy = undefined;
+
   queryString = "";
 
   displayEntry = false;
@@ -39,7 +41,8 @@ export class AppComponent {
     this.service.usersList().subscribe( (results) => {
       this.data.myDataSet = results.data;
       this.data.transformations = results.transformations;
-  })
+      this.transformationsCopy = JSON.parse(JSON.stringify(this.data.transformations))
+    })
   }
 
   private toJson(text, message){
@@ -52,14 +55,13 @@ export class AppComponent {
     }
     return json
   }
-  transformationsCopy(){
-    return JSON.parse(JSON.stringify(this.data.transformations));
-  }
+
   addDataEntry(entryName , entryJson, transJson) {
     if (entryName.length && entryJson.length) {
       const entry = this.toJson(entryJson, "We are unable to validate JSON data. Please clear text and try again!");
       const trans = this.toJson(transJson, "We are unable to validate JSON transformations. Please clear text and try again!");
       if (entry && trans) {
+        this.transformationError = undefined;
         this.data.resultingTree = [];
         this.selectionEntry.push(entryName);
         this.selectionContents[entryName] = {
@@ -72,6 +74,7 @@ export class AppComponent {
         this.selectedEntry = entryName;
         this.data.myDataSet = this.selectionContents[entryName].data;
         this.data.transformations = this.selectionContents[entryName].transformations;
+        this.transformationsCopy = JSON.parse(JSON.stringify(this.data.transformations))
         }
     } else {
       this.error = "Please enter JSON data and a name for it to be in the dropdown!";
@@ -116,7 +119,11 @@ export class AppComponent {
     if (code === 13) {
       this.queryString = event.target.value;
       const inquirer = new Inquirer();
-      this.queryResponse = inquirer.query(this.queryString, this.data.myDataSet);
+      try {
+        this.queryResponse = inquirer.query(this.queryString, this.data.myDataSet);
+      }catch(e) {
+        this.queryResponse = e.message ? e.message : e;
+      }
     }
   }
 
@@ -141,21 +148,25 @@ export class AppComponent {
       this.service.usersList().subscribe( (results) => {
         this.data.myDataSet = results.data;
         this.data.transformations = results.transformations;
+        this.transformationsCopy = JSON.parse(JSON.stringify(this.data.transformations))
       })
     } else if (this.selectedEntry === "events") {
       this.service.eventsList().subscribe( (results) => {
         this.data.myDataSet = results.data;
         this.data.transformations = results.transformations;
+        this.transformationsCopy = JSON.parse(JSON.stringify(this.data.transformations))
       })
     } else if (this.selectedEntry === "products") {
       this.service.productsList().subscribe( (results) => {
         this.data.myDataSet = results.data;
         this.data.transformations = results.transformations;
+        this.transformationsCopy = JSON.parse(JSON.stringify(this.data.transformations))
       })
     } else {
       this.data.myDataSet = this.selectionContents[this.selectedEntry].data;
       this.data.transformations = this.selectionContents[this.selectedEntry].transformations;
-  }
+      this.transformationsCopy = JSON.parse(JSON.stringify(this.data.transformations))
+    }
   }
 
 }

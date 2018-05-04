@@ -12,30 +12,25 @@ var JXPath = /** @class */ (function () {
         return this._nodeOf(node, this.path);
     };
     JXPath.prototype._nodeOf = function (node, path) {
-        var _this = this;
         var pItem = node;
-        var _loop_1 = function (i) {
+        for (var i = 0; i < this.path.length; i++) {
             if (pItem instanceof Array) {
-                var list_1 = [];
-                pItem.map(function (item) {
-                    var x = _this._nodeOf(item[path[i]], path.slice(i + 1, path.length));
+                var list = [];
+                for (var q = 0; q < this.path.length; q++) {
+                    var item = pItem[q];
+                    var x = this._nodeOf(item[path[i]], path.slice(i + 1, path.length));
                     if (x && x !== null) {
-                        list_1.push(x);
+                        list.push(x);
                     }
-                });
-                if (list_1.length) {
-                    pItem = list_1;
                 }
-                return "break";
+                if (list.length) {
+                    pItem = list;
+                }
+                break;
             }
             else {
                 pItem = pItem ? pItem[path[i]] : pItem;
             }
-        };
-        for (var i = 0; i < this.path.length; i++) {
-            var state_1 = _loop_1(i);
-            if (state_1 === "break")
-                break;
         }
         return pItem;
     };
@@ -43,16 +38,16 @@ var JXPath = /** @class */ (function () {
         return this._valueOf(node, this.path);
     };
     JXPath.prototype._valueOf = function (node, path) {
-        var _this = this;
         var pItem = node;
-        var _loop_2 = function (i) {
+        for (var i = 0; i < this.path.length; i++) {
             if (pItem instanceof Array) {
-                var list_2 = [];
-                pItem.map(function (item) {
-                    list_2.push(_this._valueOf(item[path[i]], path.slice(i + 1, path.length)));
-                });
-                pItem = list_2;
-                return "break";
+                var list = [];
+                for (var q = 0; q < this.path.length; q++) {
+                    var item = pItem[q];
+                    list.push(this._valueOf(item[path[i]], path.slice(i + 1, path.length)));
+                }
+                pItem = list;
+                break;
             }
             else if (path.length) {
                 pItem = pItem ? pItem[path[i]] : pItem;
@@ -60,11 +55,6 @@ var JXPath = /** @class */ (function () {
             else {
                 pItem = pItem;
             }
-        };
-        for (var i = 0; i < this.path.length; i++) {
-            var state_2 = _loop_2(i);
-            if (state_2 === "break")
-                break;
         }
         return pItem;
     };
@@ -75,6 +65,7 @@ var Inquirer = /** @class */ (function () {
         this.supportedMethods = {};
         this.templates = {};
         this.globalPool = {};
+        this.pathPool = {};
         this.addSupportingMethod("valueOf", this.valueOf);
         this.addSupportingMethod("each", this.each);
         this.addSupportingMethod("split", this.split);
@@ -90,9 +81,20 @@ var Inquirer = /** @class */ (function () {
         this.addSupportingMethod("select", this.select);
         this.addSupportingMethod("offPool", this.offPool);
     }
+    Inquirer.prototype.jXPathFor = function (path) {
+        var p = this.pathPool[path];
+        if (!p) {
+            p = new JXPath(path);
+            this.pathPool[path] = p;
+        }
+        return p;
+    };
     Inquirer.prototype.setRootNode = function (node) {
-        this.rootNode = node;
+        this.rootNode = this.nodeList(node);
         this.initPools(this.templates);
+    };
+    Inquirer.prototype.setContextNode = function (node) {
+        this.contextNode = node;
     };
     Inquirer.prototype.templateForName = function (name) {
         return this.templates[name];
@@ -106,58 +108,63 @@ var Inquirer = /** @class */ (function () {
         else {
             var x = Object.keys(item);
             list = [];
-            x.map(function (xItem) {
+            for (var t = 0; t < x.length; t++) {
+                var xItem = x[t];
                 if (item[xItem] instanceof Array) {
                     list = list.concat(item[xItem]);
                 }
                 else {
                     list.push(item[xItem]);
                 }
-            });
+            }
         }
         return list;
     };
     Inquirer.prototype.query = function (command, node) {
-        var _this = this;
         var mothods = this.toQueryOperation(command);
         if (node instanceof Array) {
-            var list_3 = [];
-            node.map(function (n) {
-                list_3 = list_3.concat(_this.invoke(mothods, n));
-            });
-            return list_3;
+            var list = [];
+            for (var q = 0; q < node.length; q++) {
+                var nodeItem = node[q];
+                list = list.concat(this.invoke(mothods, nodeItem));
+            }
+            return list;
         }
         return this.invoke(mothods, node);
     };
-    Inquirer.prototype.invoke = function (method, node) {
-        var _this = this;
+    Inquirer.prototype.invoke = function (operation, node) {
         var list = [];
-        if (typeof method === 'object') {
-            if (method.args instanceof Array) {
-                if (method.args.length)
-                    method.args.map(function (arg) {
+        if ((typeof node === "object") && (node instanceof Array) && node.length === 0) {
+            list = [];
+        }
+        else if (typeof operation === 'object') {
+            var f = this.supportedMethods[operation.name];
+            if (f) {
+                if (operation.args instanceof Array) {
+                    for (var a = 0; a < operation.args.length; a++) {
+                        var arg = operation.args[a];
                         if (arg.name) {
-                            list.push(_this.invoke(arg, node));
+                            list.push(this.invoke(arg, node));
                         }
                         else {
                             list.push(arg);
                         }
-                    });
-            }
-            else {
-                list.push(method.args);
-            }
-            list.push(node);
-            var f = this.supportedMethods[method.name];
-            if (f) {
+                    }
+                }
+                else {
+                    list.push(operation.args);
+                }
+                var oldContext = this.contextNode;
+                this.contextNode = node;
                 list = f.apply(this, list);
+                this.contextNode = oldContext;
             }
             else {
-                list = method.name;
+                list = operation.name;
             }
         }
         else {
-            list = method;
+            list = operation;
         }
         return list;
     };
@@ -173,37 +180,33 @@ var Inquirer = /** @class */ (function () {
         if (left instanceof Array) {
             if (right instanceof Array) {
                 if (left.length > right.length) {
-                    left.map(function (item, index) {
-                        var x = right.length > index ? right[index] : "";
-                        result.push(item + delim + x);
-                    });
+                    for (var q = 0; q < left.length; q++) {
+                        result.push(left[q] + delim + (right.length > q ? right[q] : ""));
+                    }
                 }
                 else {
-                    right.map(function (item, index) {
-                        var x = left.length > index ? left[index] : "";
-                        result.push(x + delim + item);
-                    });
+                    for (var q = 0; q < right.length; q++) {
+                        result.push((left.length > q ? left[q] : "") + delim + right[q]);
+                    }
                 }
             }
             else {
-                left.map(function (item) {
-                    result.push(item + delim + right);
-                });
+                for (var q = 0; q < left.length; q++) {
+                    result.push(left[q] + delim + right);
+                }
             }
         }
         else {
             if (right instanceof Array) {
-                right.map(function (item) {
-                    result.push(left + delim + item);
-                });
+                for (var q = 0; q < right.length; q++) {
+                    result.push(left + delim + right[q]);
+                }
             }
             else {
-                result.push(left);
-                result.push(delim);
-                result.push(right);
+                result.push(left + delim + right);
             }
         }
-        return result.join("");
+        return result.length > 1 ? result : result[0];
     };
     Inquirer.prototype.split = function () {
         var args = [];
@@ -217,23 +220,20 @@ var Inquirer = /** @class */ (function () {
         for (var _i = 0; _i < arguments.length; _i++) {
             args[_i] = arguments[_i];
         }
-        var jpath = new JXPath(args[0]);
-        return jpath.valueOf(args[1]);
+        var jpath = this.jXPathFor(args[0]);
+        return jpath.valueOf(this.contextNode);
     };
     Inquirer.prototype.each = function () {
-        var _this = this;
         var args = [];
         for (var _i = 0; _i < arguments.length; _i++) {
             args[_i] = arguments[_i];
         }
         var list = [];
-        args[0].map(function (item) {
-            var method = {
-                name: "valueOf",
-                args: args[1]
-            };
-            list.push(_this.invoke(method, item));
-        });
+        var method = { name: "valueOf", args: args[1] };
+        for (var q = 0; q < args[0].length; q++) {
+            var node = args[0][q];
+            list.push(this.invoke(method, node));
+        }
         return list;
     };
     Inquirer.prototype.enlist = function () {
@@ -242,7 +242,7 @@ var Inquirer = /** @class */ (function () {
             args[_i] = arguments[_i];
         }
         var list = [];
-        args.slice(0, args.length - 1).map(function (item) {
+        args.map(function (item) {
             list.push(item);
         });
         return list;
@@ -252,59 +252,90 @@ var Inquirer = /** @class */ (function () {
         for (var _i = 0; _i < arguments.length; _i++) {
             args[_i] = arguments[_i];
         }
-        return args[0].join(args[1]);
+        return args[0].length > 1 ? args[0].join(args[1]) : args[0];
     };
     Inquirer.prototype.apply = function () {
         var args = [];
         for (var _i = 0; _i < arguments.length; _i++) {
             args[_i] = arguments[_i];
         }
-        return this.match(args[0], args[1], "=", args[2], args[3]);
+        var path = this.jXPathFor(args[1]);
+        var path2 = path.fromLast();
+        var values = args[2];
+        var list = [];
+        for (var c = 0; c < this.rootNode.length; c++) {
+            var node = this.rootNode[c];
+            var value = path.nodeOf(node);
+            if (value instanceof Array) {
+                for (var d = 0; d < value.length; d++) {
+                    var v = value[d];
+                    var x = path2.valueOf(v);
+                    if (this.evaluateOperation(x, "=", values)) {
+                        list.push(v);
+                    }
+                }
+            }
+            else {
+                var x = path2.valueOf(node);
+                if (this.evaluateOperation(x, "=", values)) {
+                    list.push(node);
+                }
+            }
+        }
+        if (list.length) {
+            list = this.style(args[0], list);
+        }
+        return list;
     };
     Inquirer.prototype.match = function () {
-        var _this = this;
         var args = [];
         for (var _i = 0; _i < arguments.length; _i++) {
             args[_i] = arguments[_i];
         }
         var template = this.templateForName(args[0]);
         if (!template) {
-            throw "Missing Template definition for '" + args[0] + "'.";
+            throw {
+                message: "Missing Template definition for '" + args[0] + "'.",
+                stack: new Error().stack
+            };
         }
-        var path = new JXPath(args[1]);
+        var path = this.jXPathFor(args[1]);
         var path2 = path.fromLast();
         var operation = args[2];
         var values = args[3];
-        var nodes = this.templateNodes(template, args[4]);
+        var nodes = this.templateNodes(template, this.contextNode);
         var list = [];
         if (nodes instanceof Array) {
-            nodes.map(function (node) {
+            for (var c = 0; c < nodes.length; c++) {
+                var node = nodes[c];
                 var value = path.nodeOf(node);
                 if (value instanceof Array) {
-                    value.map(function (v) {
+                    for (var d = 0; d < value.length; d++) {
+                        var v = value[d];
                         var x = path2.valueOf(v);
-                        if (_this.evaluateOperation(x, operation, values)) {
+                        if (this.evaluateOperation(x, operation, values)) {
                             list.push(v);
                         }
-                    });
+                    }
                 }
                 else {
                     var x = path2.valueOf(node);
-                    if (_this.evaluateOperation(x, operation, values)) {
+                    if (this.evaluateOperation(x, operation, values)) {
                         list.push(node);
                     }
                 }
-            });
+            }
         }
         else {
             var value = path.nodeOf(nodes);
             if (value instanceof Array) {
-                value.map(function (v) {
+                for (var d = 0; d < value.length; d++) {
+                    var v = value[d];
                     var x = path2.valueOf(v);
-                    if (_this.evaluateOperation(x, operation, values)) {
+                    if (this.evaluateOperation(x, operation, values)) {
                         list.push(v);
                     }
-                });
+                }
             }
             else {
                 var x = path2.valueOf(nodes);
@@ -313,33 +344,34 @@ var Inquirer = /** @class */ (function () {
                 }
             }
         }
-        return this.style(args[0], list);
+        return list;
     };
     Inquirer.prototype.filter = function () {
-        var _this = this;
         var args = [];
         for (var _i = 0; _i < arguments.length; _i++) {
             args[_i] = arguments[_i];
         }
-        var path = new JXPath(args[0]);
+        var path = this.jXPathFor(args[0]);
         var operation = args[1];
         var values = args[2];
         var list = [];
-        args[3].map(function (node) {
+        for (var a = 0; a < this.contextNode.length; a++) {
+            var node = this.contextNode[a];
             var value = path.valueOf(node);
             if (value instanceof Array) {
-                value.map(function (v) {
-                    if (_this.evaluateOperation(v, operation, values)) {
+                for (var d = 0; d < value.length; d++) {
+                    var v = value[d];
+                    if (this.evaluateOperation(v, operation, values)) {
                         list.push(node);
                     }
-                });
+                }
             }
             else {
-                if (_this.evaluateOperation(value, operation, values)) {
+                if (this.evaluateOperation(value, operation, values)) {
                     list.push(node);
                 }
             }
-        });
+        }
         return list;
     };
     Inquirer.prototype.select = function () {
@@ -347,18 +379,19 @@ var Inquirer = /** @class */ (function () {
         for (var _i = 0; _i < arguments.length; _i++) {
             args[_i] = arguments[_i];
         }
-        var path = new JXPath(args[0]);
+        var path = this.jXPathFor(args[0]);
         var list = [];
-        if (args[1] instanceof Array) {
-            args[1].map(function (node) {
+        if (this.contextNode instanceof Array) {
+            for (var d = 0; d < this.contextNode.length; d++) {
+                var node = this.contextNode[d];
                 var value = path.nodeOf(node);
                 if (value && value.length) {
                     list.push(node);
                 }
-            });
+            }
         }
         else {
-            var value = path.nodeOf(args[1]);
+            var value = path.nodeOf(this.contextNode);
             if (value && value.length) {
                 if (value instanceof Array) {
                     list = value;
@@ -371,24 +404,38 @@ var Inquirer = /** @class */ (function () {
         return list;
     };
     Inquirer.prototype.style = function () {
-        var _this = this;
         var args = [];
         for (var _i = 0; _i < arguments.length; _i++) {
             args[_i] = arguments[_i];
         }
         var template = this.templateForName(args[0]);
         if (!template) {
-            throw "Missing Template definition for '" + args[0] + "'.";
+            throw {
+                message: "Missing Template definition for '" + args[0] + "'.",
+                stack: new Error().stack
+            };
         }
         var result = [];
         var attrs = Object.keys(template.style);
-        args[1].map(function (item) {
+        if (args[1] instanceof Array) {
+            for (var a = 0; a < args[1].length; a++) {
+                var item = args[1][a];
+                var node = {};
+                for (var d = 0; d < attrs.length; d++) {
+                    var attr = attrs[d];
+                    node[attr] = this.invoke(template.style[attr], item);
+                }
+                result.push(node);
+            }
+        }
+        else {
             var node = {};
-            attrs.map(function (attr) {
-                node[attr] = _this.invoke(template.style[attr], item);
-            });
+            for (var d = 0; d < attrs.length; d++) {
+                var attr = attrs[d];
+                node[attr] = this.invoke(template.style[attr], args[1]);
+            }
             result.push(node);
-        });
+        }
         return result;
     };
     Inquirer.prototype.addSupportingMethod = function (name, method) {
@@ -477,10 +524,16 @@ var Inquirer = /** @class */ (function () {
             }
         }
         if (i >= 0 && j < 0) {
-            throw "incorrect method call declaration. Missing ')'";
+            throw {
+                message: "incorrect method call declaration. Missing ')'",
+                stack: new Error().stack
+            };
         }
         else if (i < 0 && j > 0) {
-            throw "incorrect method call declaration. Missing '('";
+            throw {
+                message: "incorrect method call declaration. Missing '('",
+                stack: new Error().stack
+            };
         }
         else if (i < 0 && j < 0 && k < 0) {
             return item;
@@ -497,23 +550,27 @@ var Inquirer = /** @class */ (function () {
     };
     Inquirer.prototype.templateNodes = function (template, nodes) {
         var list = [];
-        var n = nodes;
+        var nodeList = nodes;
         if (template.context === "root") {
             if (!this.rootNode) {
-                throw "Unable to find root node to perform operation.";
+                throw {
+                    message: "Unable to find root node to perform operation.",
+                    stack: new Error().stack
+                };
             }
-            n = this.nodeList(this.rootNode);
+            nodeList = this.nodeList(this.rootNode);
         }
         if (template.match && template.match.length) {
-            var path_1 = new JXPath(template.match);
-            n.map(function (node) {
-                if (path_1.valueOf(node) === template.value) {
+            var path = this.jXPathFor(template.match);
+            for (var z = 0; z < nodeList.length; z++) {
+                var node = nodeList[z];
+                if (path.valueOf(node) === template.value) {
                     list.push(node);
                 }
-            });
+            }
         }
         else if (nodes) {
-            list = n;
+            list = nodeList;
         }
         return list;
     };
@@ -521,27 +578,30 @@ var Inquirer = /** @class */ (function () {
         var result = false;
         if (right instanceof Array) {
             if (operation === "=") {
-                right.map(function (k) {
-                    if (left === k) {
+                for (var i = 0; i < right.length; i++) {
+                    if (left == right[i]) {
                         result = true;
+                        break;
                     }
-                });
+                }
             }
             else if (operation === "in") {
-                right.map(function (k) {
-                    if (k.indexOf(left) >= 0) {
+                for (var i = 0; i < right.length; i++) {
+                    if (right[i].indexOf(left) >= 0) {
                         result = true;
+                        break;
                     }
-                });
+                }
             }
             else if (operation === "!") {
-                var f_1 = false;
-                right.map(function (k) {
-                    if (left === k) {
-                        f_1 = true;
+                var f = false;
+                for (var i = 0; i < right.length; i++) {
+                    if (left == right[i]) {
+                        f = true;
+                        break;
                     }
-                });
-                result = !f_1;
+                }
+                result = !f;
             }
         }
         else {
@@ -570,63 +630,87 @@ var Inquirer = /** @class */ (function () {
         }
         var list = [];
         var pool = this.globalPool[args[0]];
+        var keys = args[1];
         if (!pool) {
-            throw "Attempting to access pool '" + args[0] + "' that is not created.";
+            throw {
+                message: "Attempting to access pool '" + args[0] + "' that is not created.",
+                stack: new Error().stack
+            };
         }
-        if (args[1] instanceof Array) {
-            args[1].map(function (key) {
-                var x = pool[key];
-                if (x) {
-                    list.push(x);
+        if (keys instanceof Array) {
+            for (var z = 0; z < keys.length; z++) {
+                var key = keys[z];
+                var node = pool[key];
+                if (node) {
+                    list.push(node);
                 }
                 else {
                 }
-            });
+            }
         }
         else {
-            var x = pool[args[1]];
-            if (x) {
-                list.push(x);
+            var node = pool[keys];
+            if (node) {
+                list.push(node);
             }
         }
         return list;
     };
     Inquirer.prototype.initTemplates = function (list) {
-        var _this = this;
-        list.map(function (template) {
-            Object.keys(template.style).map(function (key) {
-                template.style[key] = _this.toQueryOperation(template.style[key]);
-            });
-            _this.templates[template.name] = template;
-        });
-    };
-    Inquirer.prototype.initPools = function (templates) {
-        var _this = this;
-        var list = Object.keys(templates);
-        if (list.length === 0) {
-            throw "Missing Template definitions.";
-        }
-        if (!this.rootNode) {
-            throw "Unable to find root node to perform operation.";
-        }
-        this.globalPool = {};
-        list.map(function (template) {
-            var t = _this.templateForName(template);
-            if (t.inPool) {
-                var path = new JXPath(t.inPool);
-                var path2_1 = path.fromLast();
-                var nodes = path.nodeOf(_this.rootNode);
-                _this.globalPool[t.name] = {};
-                if (nodes instanceof Array) {
-                    nodes.map(function (node) {
-                        _this.globalPool[t.name][path2_1.valueOf(node)] = node;
-                    });
-                }
-                else {
-                    _this.globalPool[t.name][path2_1.valueOf(nodes)] = nodes;
+        this.templates = {};
+        for (var i = 0; i < list.length; i++) {
+            var template = list[i];
+            var styles = Object.keys(template.style);
+            for (var j = 0; j < styles.length; j++) {
+                var key = styles[j];
+                var method = template.style[key];
+                if (typeof method === "string") {
+                    template.style[key] = this.toQueryOperation(method);
                 }
             }
-        });
+            this.templates[template.name] = template;
+        }
+    };
+    Inquirer.prototype.initPools = function (templates) {
+        var list = Object.keys(templates);
+        if (list.length === 0) {
+            throw {
+                message: "Missing Template definitions.",
+                stack: new Error().stack
+            };
+        }
+        if (!this.rootNode) {
+            throw {
+                message: "Unable to find root node to perform operation.",
+                stack: new Error().stack
+            };
+        }
+        this.globalPool = {};
+        for (var i = 0; i < list.length; i++) {
+            var template = list[i];
+            var t = this.templateForName(template);
+            if (t.inPool) {
+                var pool = {};
+                var path = this.jXPathFor(t.inPool);
+                var match = t.match;
+                var nodes = this.rootNode;
+                if (match && t.value) {
+                    var mpath = this.jXPathFor(match);
+                    for (var k = 0; k < nodes.length; k++) {
+                        var v = mpath.valueOf(nodes[k]);
+                        if (v === t.value) {
+                            pool[path.valueOf(nodes[k])] = nodes[k];
+                        }
+                    }
+                }
+                else {
+                    for (var k = 0; k < nodes.length; k++) {
+                        pool[path.valueOf(nodes[k])] = nodes[k];
+                    }
+                }
+                this.globalPool[t.name] = pool;
+            }
+        }
     };
     return Inquirer;
 }());
@@ -640,19 +724,20 @@ var Styler = /** @class */ (function () {
         this.inquirer.setRootNode(node);
     };
     Styler.prototype.transform = function () {
-        var _this = this;
         var result = [];
         var template = this.inquirer.templateForName(this.transformations.rootTemplate);
         if (template) {
-            var list = this.inquirer.nodeList(null);
-            var attrs_1 = Object.keys(template.style);
-            list.map(function (item) {
-                var node = {};
-                attrs_1.map(function (attr) {
-                    node[attr] = _this.inquirer.invoke(template.style[attr], item);
-                });
-                result.push(node);
-            });
+            var attrs = Object.keys(template.style);
+            var nodeList = this.inquirer.templateNodes(template, this.inquirer.nodeList(null));
+            for (var i = 0; i < nodeList.length; i++) {
+                var currentNode = nodeList[i];
+                var resultingNode = {};
+                for (var j = 0; j < attrs.length; j++) {
+                    var attr = attrs[j];
+                    resultingNode[attr] = this.inquirer.invoke(template.style[attr], currentNode);
+                }
+                result.push(resultingNode);
+            }
         }
         if (this.transformations.onResult && this.transformations.onResult.length) {
             var functions = this.inquirer.toQueryOperation(this.transformations.onResult);
@@ -678,7 +763,8 @@ var XjsltComponent = /** @class */ (function () {
                 this.ontransformation.emit(this.styler.transform());
             }
             catch (e) {
-                this.onerror.emit(e.message);
+                console.log(e);
+                this.onerror.emit(e);
             }
         }
     };

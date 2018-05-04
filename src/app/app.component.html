@@ -49,7 +49,7 @@
 </div>
 <xjslt *ngIf="!displayEntry"
 	[node]="data.myDataSet"
-  [transformations]="transformationsCopy()"
+  [transformations]="transformationsCopy"
   (onerror)="onError( $event )"
 	(ontransformation)="ontransformation($event)"></xjslt>
 

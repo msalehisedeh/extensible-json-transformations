@@ -31,16 +31,18 @@ export class Styler  {
         const template:Template = this.inquirer.templateForName(this.transformations.rootTemplate);
         
         if (template) {
-            const list = this.inquirer.nodeList(null);
             const attrs = Object.keys(template.style);
+            const nodeList = this.inquirer.templateNodes(template, this.inquirer.nodeList(null));
     
-            list.map( (item) => {
-                const node = {};
-                attrs.map( (attr) => {
-                    node[attr] = this.inquirer.invoke(template.style[attr], item);
-                });
-                result.push(node);
-            });
+            for(let i = 0; i < nodeList.length; i++) {
+                const currentNode = nodeList[i];
+                const resultingNode = {};
+                for( let j = 0; j < attrs.length; j++) {
+                    const attr = attrs[j];
+                    resultingNode[attr] = this.inquirer.invoke(template.style[attr], currentNode);
+                };
+                result.push(resultingNode);
+            };
         }
         if(this.transformations.onResult && this.transformations.onResult.length) {
             const functions = this.inquirer.toQueryOperation(this.transformations.onResult);

@@ -1,10 +1,12 @@
 
 # Welcome to Extensible JSON transformations!
-
-
 Have you ever wanted to perform query on a JSON?  Have you ever wanted to consume it in a program but the JSON was in a form not suitable for your program? Have you wanted to use the JSON without writing any code to do it? Have you wondered what it takes to make this happen? Well... wonder no more and add this component into your project...
 
 [Live Demo](https://extensible-json-transformations.stackblitz.io) | [Source code](https://github.com/msalehisedeh/extensible-json-transformations)
+
+
+## Version 0.1.1
+fixed few logic errors to handle complex JSON structures.
 
 ## Version 0.1.0
 Added ability to query a JSON directly.
@@ -21,6 +23,7 @@ EXPORTS:
 	Transformations
 	Template
 	Styler
+	JsonAsDataSource
 	Inquirer
 ```
 
@@ -40,7 +43,9 @@ JST: JSON Styling Template
 	Template to be used specificaly for the purpose of JSON Styling.
 ```
 
-## Styling Methods
+## Transformations 
+
+### Styling Methods
 
 | Method | Example | Arguments | Description |
 |------------|-----------------------|---------|------------------------------------------------------------|
@@ -53,11 +58,11 @@ JST: JSON Styling Template
 | select | `select(friens.address)` | 1) JPath | Select the nodes with given JPath in current context |
 | filter | `filter(id,in,valueOf(selected_ids))` | 1) JPath, 2) Operation, 3) Value to match | For value of target in current context, evaluate operation for given value(s). Supported operations are `=,<,>,in,!`. For list values 'in' operation means "contains" and for string value it means "indexOf". Negating operation '!' means not equal or not in. |
 | style | `style(templateName, select(friens.address))` | 1) Template name, 2) Array | Apply the given template for the given array |
-| match | `match(templateName,user.id,in,spit(valueOf(id_list)))` | 1) Template name, 2) JPath to a target, 3) Operation, 4) Value to match | For value of target in given template nodes, evaluate operation for given value(s). Supported operations are `=,<,>,in,!`. For list values 'in' operation means "contains" and for string value it means "indexOf". Negating operation '!' means not equal or not in. |
-| apply | `apply(trmplateName,id,split(valueOf(user_ids),''))` | 1) Template name, 2) JPath, 3) Value(s) | Apply the template name in current context for each value that matches the given path. |
+| match | `match(templateName,user.id,in,spit(valueOf(id_list)))` | 1) Template name, 2) JPath to a target, 3) Operation, 4) Value to match | For value of target in given template nodes, evaluate and operation for given value(s) and return nodes that are matching the operation. Supported operations are `=,<,>,in,!`. For list values 'in' operation means "contains" and for string value it means "indexOf". Negating operation '!' means not equal or not in. |
+| apply | `apply(trmplateName,id,split(valueOf(user_ids),''))` | 1) Template name, 2) JPath, 3) Value(s) | Apply the template name in current context for each node that matches the given path. |
 | offPool | `offPool(template,valueOf(id))` | 1) Template name, 2) Key | Use the given template pool to pick up item(s) with given key(s) |
 
-## Transformations structure
+### structures
 
 ```javasctipt
 export interface Transformations {
@@ -97,15 +102,19 @@ export interface Template {
 | inPool | Pre-process all items with given JPath as a key in a pool. Example: 'id' or 'friends.id' |
   
 
+NOTE: if you get "RangeError: Maximum call stack size exceeded" message, it means an infinite loop is created because of circular referencing in multiple templates.
+
+
 ## So... How it can be done?
 
 Run `npm install extensible-json-transformation` in your application. and do the following:
 
-If you want to use the component, do the following in your html:
+If you want to use the transformation component, do the following in your html:
 ```javascript
 <xjslt
 	[node]="myDataSet"
 	[transformations]="transformations"
+	(onerror)="takeErrorMessageFrom($event)"
 	(ontransformation)="ontransformation($event)"></xjslt>
 
 where
@@ -130,15 +139,15 @@ transformations  could  be ={
 
 If you want to directly use the transformation object, do the following in your code:
 ```javascript
-    const styler = new Styler(theJsonForTransfromation);
+	const styler = new Styler(theJsonForTransfromation);
 
-	this.styler.changeRootNode(theJsonRootNode);
-    this.styler.transform();
+	styler.changeRootNode(theJsonRootNode);
+	styler.transform();
 ```
 
-If you want to directly query a JSON object, do the following in your code:
+If you want to directly query a JSON object using transformation methods, do the following in your code:
 ```javascript
-    const inquirer = new Inquirer();
+	const inquirer = new Inquirer();
 	const queryResponse = inquirer.query("set of nested function calls", theJsonRootNode);
 	
 	where nested function calls could be `enlist(valueOf(a),valueOf(b),valueOf(c))`
