@@ -2,8 +2,11 @@
 # Welcome to Extensible JSON transformations!
 Have you ever wanted to perform query on a JSON?  Have you ever wanted to consume it in a program but the JSON was in a form not suitable for your program? Have you wanted to use the JSON without writing any code to do it? Have you wondered what it takes to make this happen? Well... wonder no more and add this component into your project...
 
-[Live Demo](https://extensible-json-transformations.stackblitz.io) | [Source code](https://github.com/msalehisedeh/extensible-json-transformations)
+[Live Demo](https://extensible-json-transformations.stackblitz.io) | [Source code](https://github.com/msalehisedeh/extensible-json-transformations) | [Comments/Requests](https://github.com/msalehisedeh/extensible-json-transformations/issues)
 
+
+## Version 1.0.0
+Compiled with AOT option and resolved issues. 
 
 ## Version 0.1.1
 fixed few logic errors to handle complex JSON structures.
