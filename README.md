@@ -151,6 +151,7 @@ If you want to directly query a JSON object using transformation methods, do the
 
 | Version | Description                                                                                              |
 |---------|----------------------------------------------------------------------------------------------------------|
+| 2.0.0   | Updated to Angular 8.                                                                                    |
 | 1.3.1   | Updated dependencies.                                                                                    |
 | 1.3.0   | Re-organizing libraries I am providing. Added scope to the project. From now on Accessing through @sedeh/extensible-json-transformations  |
 | 1.2.0   | It was brought to my attention that some users have trouble using my components in their angular 6 environment. Since I had only updated few dependencies when moved to Angular 6, I am thinking dependencies are causing issues. So, for this release, I am updating all dependencies to what Angular 6 applications are expecting to have. Please let me know if this is fixing or not fixing any issues you are facing. |

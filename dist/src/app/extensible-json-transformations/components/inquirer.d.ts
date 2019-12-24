@@ -15,9 +15,9 @@ export declare class JXPath {
     constructor(jpath: any);
     fromLast(): JXPath;
     nodeOf(node: any): any;
-    private _nodeOf(node, path);
+    private _nodeOf;
     valueOf(node: any): any;
-    private _valueOf(node, path);
+    private _valueOf;
 }
 export declare class Inquirer {
     private supportedMethods;
@@ -27,7 +27,7 @@ export declare class Inquirer {
     private globalPool;
     private pathPool;
     constructor();
-    private jXPathFor(path);
+    private jXPathFor;
     setRootNode(node: any): void;
     setContextNode(node: any): void;
     templateForName(name: any): any;
@@ -46,12 +46,12 @@ export declare class Inquirer {
     select(...args: any[]): any[];
     style(...args: any[]): any[];
     addSupportingMethod(name: any, method: any): void;
-    private removeQuotes(str);
+    private removeQuotes;
     toQueryOperation(methods: any): any;
-    private toFunctions(item);
+    private toFunctions;
     templateNodes(template: Template, nodes: any): any[];
-    private evaluateOperation(left, operation, right);
-    private offPool(...args);
+    private evaluateOperation;
+    private offPool;
     initTemplates(list: any): void;
     initPools(templates: any): void;
 }

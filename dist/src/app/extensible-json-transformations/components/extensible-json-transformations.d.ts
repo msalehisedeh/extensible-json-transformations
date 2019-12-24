@@ -4,8 +4,8 @@ export declare class XjsltComponent implements OnInit, OnChanges {
     private styler;
     node: {};
     transformations: Transformations;
-    ontransformation: EventEmitter<{}>;
-    onerror: EventEmitter<{}>;
+    ontransformation: EventEmitter<any>;
+    onerror: EventEmitter<any>;
     ngOnInit(): void;
     ngOnChanges(chages: any): void;
 }
