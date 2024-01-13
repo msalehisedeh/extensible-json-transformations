@@ -35,5 +35,33 @@
     "karma-jasmine-html-reporter": "~2.0.0",
     "ng-packagr": "^15.2.2",
     "typescript": "~4.9.4"
-  }
+  },
+  "keywords": [
+    "Angular",
+    "transformation",
+    "extensible",
+    "JSON",
+    "JSON2JSON",
+    "JSON to JSON",
+    "XSLT",
+    "XPTH",
+    "styling",
+    "language",
+    "transformation language",
+    "JSON transformation",
+    "real-time",
+    "operational",
+    "synchronization",
+    "restructuring",
+    "reformatting",
+    "template",
+    "JSON path",
+    "JSON query",
+    "nested",
+    "expression",
+    "query",
+    "path",
+    "node",
+    "best"
+  ]
 }

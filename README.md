@@ -6,7 +6,9 @@ Have you ever wanted to perform query on a JSON?  Have you ever wanted to consum
 
 **NOTE:** Starting with version 1.3.0 you need to import this library through @sedeh/extensible-json-transformations.
 
-[Live Demo](https://stackblitz.com/edit/extensible-json-transformations?file=app%2Fapp.component.ts) | [Comments/Requests](https://github.com/msalehisedeh/extensible-json-transformations/issues)
+[Live Demo](https://stackblitz.com/edit/extensible-json-transformations?file=app%2Fapp.component.ts) | 
+[NPM](https://www.npmjs.com/package/@sedeh/extensible-json-transformations) |
+[Comments/Requests](https://github.com/msalehisedeh/extensible-json-transformations/issues)
 
 ```
 EXPORTS:

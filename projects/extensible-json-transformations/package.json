@@ -1,12 +1,39 @@
 {
   "name": "@sedeh/extensible-json-transformations",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "peerDependencies": {
     "@angular/common": "^15.2.0",
     "@angular/core": "^15.2.0"
   },
   "dependencies": {
     "tslib": "^2.3.0"
-  },
+  },"keywords": [
+    "Angular",
+    "transformation",
+    "extensible",
+    "JSON",
+    "JSON2JSON",
+    "JSON to JSON",
+    "XSLT",
+    "XPTH",
+    "styling",
+    "language",
+    "transformation language",
+    "JSON transformation",
+    "real-time",
+    "operational",
+    "synchronization",
+    "restructuring",
+    "reformatting",
+    "template",
+    "JSON path",
+    "JSON query",
+    "nested",
+    "expression",
+    "query",
+    "path",
+    "node",
+    "best"
+  ],
   "sideEffects": false
 }
