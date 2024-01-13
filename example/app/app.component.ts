@@ -1,7 +1,7 @@
 import { Component, ViewChild } from '@angular/core';
 
 import { AppService } from './app.service';
-import { BrowserModule } from '@angular/platform-browser';
+import { CommonModule } from '@angular/common';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { Inquirer } from '@sedeh/extensible-json-transformations';
 import { XjsltComponent } from '@sedeh/extensible-json-transformations';
@@ -15,8 +15,8 @@ interface DataSet {
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [BrowserModule, MatTooltipModule, XjsltComponent],
-  providers: [Inquirer],
+  imports: [CommonModule, MatTooltipModule, XjsltComponent],
+  providers: [AppService, Inquirer],
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.scss'],
 })
