@@ -1,8 +1,8 @@
 import { Component, ViewChild } from '@angular/core';
 
 import { AppService } from './app.service';
-import { Inquirer } from './extensible-json-transformations/shared/inquirer';
-import { XjsltComponent } from './extensible-json-transformations/extensible-json-transformations';
+import { Inquirer } from '@sedeh/extensible-json-transformations';
+import { XjsltComponent } from '@sedeh/extensible-json-transformations';
 
 interface DataSet {
   transformations: any,
@@ -12,6 +12,8 @@ interface DataSet {
 
 @Component({
   selector: 'app-root',
+  standalone: true,
+  imports: [XjsltComponent, Inquirer],
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.scss']
 })
