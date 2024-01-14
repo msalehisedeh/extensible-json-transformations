@@ -10,14 +10,7 @@ Have you ever wanted to perform query on a JSON?  Have you ever wanted to consum
 [NPM](https://www.npmjs.com/package/@sedeh/extensible-json-transformations) |
 [Comments/Requests](https://github.com/msalehisedeh/extensible-json-transformations/issues)
 
-```
-EXPORTS:
-	XjsltComponent
-	Transformations
-	Template
-	Styler
-	JsonAsDataSource
-	Inquirer
-```
+**I appreciate comments and requests.** please go to provided link and make your comments.
+
 
 ![alt text](https://raw.githubusercontent.com/msalehisedeh/extensible-json-transformations/master/sample.png  "What you would see when a XJSLT is used")
